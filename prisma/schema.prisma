@@ -1,0 +1,549 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+//////////////////////////////////////////////////////
+// ENUMS
+//////////////////////////////////////////////////////
+
+enum IncidentStatus {
+  RAISED
+  UNDER_REVIEW
+  REJECTED
+  ASSIGNED
+  INVESTIGATION_IN_PROGRESS
+  TASK_IN_PROGRESS
+  WAITING_APPROVAL
+  COMPLETED
+  REOPENED
+  CLOSED
+}
+
+enum TaskStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum InvoiceStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum AuditAction {
+  INSERT
+  UPDATE
+  DELETE
+}
+
+//////////////////////////////////////////////////////
+// MASTER TABLES
+//////////////////////////////////////////////////////
+
+// MASTER TABLES
+//////////////////////////////////////////////////////
+
+model Province {
+  id        String     @id @default(uuid())
+  name      String     @unique
+  buildings Building[]
+  users     User[]
+  createdAt DateTime   @default(now())
+}
+
+model Building {
+  id         String     @id @default(uuid())
+  name       String
+  address    String?
+  postalCode String?
+  latitude   Float?
+  longitude  Float?
+  province   Province   @relation(fields: [provinceId], references: [id])
+  provinceId String
+  incidents  Incident[]
+  inspections Inspection[]
+  drills     Drill[]
+  equipment  Equipment[]
+  departments Department[]
+  createdAt  DateTime   @default(now())
+}
+
+model Department {
+  id         String   @id @default(uuid())
+  name       String   @unique
+  building   Building? @relation(fields: [buildingId], references: [id])
+  buildingId String?
+  users      User[]
+  incidents  Incident[]
+}
+
+//////////////////////////////////////////////////////
+// USER & RBAC
+//////////////////////////////////////////////////////
+
+model User {
+  id           String      @id @default(uuid())
+  name         String
+  email        String      @unique
+  phone        String?
+  employeeNumber String?   @unique
+  department   Department? @relation(fields: [departmentId], references: [id])
+  departmentId String?
+  province     Province?   @relation(fields: [provinceId], references: [id])
+  provinceId   String?
+
+  roles         UserRole[]
+  notifications Notification[]
+
+  createdAt DateTime  @default(now())
+  isActive  Boolean   @default(true)
+  lastLoginAt DateTime?
+  deletedAt DateTime?
+
+  // Back-relations for Incident/Task/etc.
+  reportedIncidents    Incident[]           @relation("ReportedBy")
+  assignedIncidents    IncidentAssignment[] @relation("AssignedTo")
+  assignedByIncidents  IncidentAssignment[] @relation("AssignedBy")
+  incidentComments     IncidentComment[]
+  incidentStatusLogs   IncidentStatusLog[]
+  uploadedMedia        IncidentMedia[]      @relation("MediaUploader")
+  investigations       Investigation[]
+  tasksAssigned        Task[]
+  inspectionsConducted Inspection[]         @relation("Inspector")
+}
+
+model Role {
+  id          String           @id @default(uuid())
+  name        String           @unique
+  description String?
+  permissions RolePermission[]
+  users       UserRole[]
+}
+
+model Permission {
+  id     String           @id @default(uuid())
+  name   String           @unique
+  module String
+  roles  RolePermission[]
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+
+  role       Role       @relation(fields: [roleId], references: [id])
+  permission Permission @relation(fields: [permissionId], references: [id])
+
+  @@id([roleId, permissionId])
+}
+
+model UserRole {
+  userId String
+  roleId String
+
+  user User @relation(fields: [userId], references: [id])
+  role Role @relation(fields: [roleId], references: [id])
+
+  @@id([userId, roleId])
+}
+
+//////////////////////////////////////////////////////
+// INCIDENT CORE
+model Incident {
+  id               String         @id @default(uuid())
+  incidentNumber   String         @unique
+  type             String?        // Added for compatibility
+  description      String
+  category         String
+  severity         String
+  immediateActions String?
+  otherActions     String?        // Additional actions taken
+  impact           String?
+  location         String?        // Location description
+  peopleImpacted   Int?           // Number of people impacted
+  status           IncidentStatus @default(RAISED)
+
+  building   Building @relation(fields: [buildingId], references: [id])
+  buildingId String
+
+  department   Department? @relation(fields: [departmentId], references: [id])
+  departmentId String?
+
+  reportedBy   User   @relation("ReportedBy", fields: [reportedById], references: [id])
+  reportedById String
+
+  latitude   Float?
+  longitude  Float?
+  occurredAt DateTime
+
+  tasks           Task[]
+  investigations  Investigation[]
+  invoices        Invoice[]
+  slaTracking     IncidentSLATracking?
+  comments        IncidentComment[]
+  statusLogs      IncidentStatusLog[]
+  assignments     IncidentAssignment[]
+  media           IncidentMedia[]
+  impactedPeople  ImpactedPerson[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  isEscalated      Boolean   @default(false)
+  escalatedAt      DateTime?
+  escalationReason String?
+
+  isActive  Boolean   @default(true)
+  deletedAt DateTime?
+}
+
+model ImpactedPerson {
+  id         String   @id @default(uuid())
+  name       String
+  email      String
+  phone      String?
+  incident   Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  incidentId String
+  createdAt  DateTime @default(now())
+}
+
+// ALIAS for backward compatibility or direct usage by CasesService if refactoring is hard
+// But better to migrate code. For now, adding missing specialized models.
+
+model IncidentMedia {
+  id           String   @id @default(uuid())
+  fileUrl      String
+  fileType     String
+  uploaderRole String?
+  uploadedBy   User?    @relation("MediaUploader", fields: [uploadedById], references: [id])
+  uploadedById String?
+  incident     Incident @relation(fields: [incidentId], references: [id])
+  incidentId   String
+  uploadedAt   DateTime @default(now())
+}
+
+// ... existing models ...
+
+// OHS & RISK MANAGEMENT
+
+model RiskRegister {
+  id           String   @id @default(uuid())
+  title        String
+  description  String?
+  riskLevel    String
+  mitigation   String?
+  departmentId String?
+  createdById  String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Jsa {
+  id          String   @id @default(uuid())
+  jobName     String
+  hazards     Json?
+  controls    Json?
+  remarks     String?
+  status      String?  @default("Draft")
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@map("jsa") // Map to lowercase table name as per raw query usage
+}
+
+model Inspection {
+  id          String              @id @default(uuid())
+  type        String
+  status      String              @default("SCHEDULED")
+  building    Building?           @relation(fields: [buildingId], references: [id])
+  buildingId  String?
+  inspector   User?               @relation("Inspector", fields: [inspectorId], references: [id])
+  inspectorId String?
+  conductedAt DateTime?
+  findings    InspectionFinding[]
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+}
+
+model InspectionFinding {
+  id             String     @id @default(uuid())
+  inspection     Inspection @relation(fields: [inspectionId], references: [id])
+  inspectionId   String
+  finding        String
+  actionRequired String?
+  status         String     @default("OPEN")
+  dueDate        DateTime?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+}
+
+// EMERGENCY
+
+model EmergencyPlan {
+  id          String   @id @default(uuid())
+  title       String
+  version     String
+  fileUrl     String?
+  documentPath String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Drill {
+  id            String    @id @default(uuid())
+  name          String
+  type          String
+  scheduledDate DateTime
+  status        String    @default("SCHEDULED")
+  building      Building? @relation(fields: [buildingId], references: [id])
+  buildingId    String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model Equipment {
+  id             String    @id @default(uuid())
+  name           String
+  type           String
+  serialNumber   String?
+  status         String    @default("OPERATIONAL")
+  building       Building? @relation(fields: [buildingId], references: [id])
+  buildingId     String?
+  lastServiceDate DateTime?
+  nextServiceDate DateTime?
+  lastChecked     DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+}
+
+// KPI & PDCA
+
+model Kpi {
+  id          String      @id @default(uuid())
+  name        String
+  targetValue Float
+  unit        String
+  frequency   String
+  records     KpiRecord[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+}
+
+model KpiRecord {
+  id        String   @id @default(uuid())
+  kpi       Kpi      @relation(fields: [kpiId], references: [id])
+  kpiId     String
+  value     Float
+  period    String
+  recordedAt DateTime @default(now())
+}
+
+model PdcaAction {
+  id          String   @id @default(uuid())
+  title       String
+  phase       String   // Plan, Do, Check, Act
+  description String?
+  status      String   @default("Pending")
+  ownerId     String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// INVOICE ACTIONS (Missing in previous schema review)
+
+model InvoiceAction {
+    id        String   @id @default(uuid())
+    invoice   Invoice  @relation(fields: [invoiceId], references: [id])
+    invoiceId String
+    action    String
+    actorId   String
+    timestamp DateTime @default(now())
+}
+
+// ... existing SLA ...
+
+
+//////////////////////////////////////////////////////
+// REVIEW & ASSIGNMENT
+//////////////////////////////////////////////////////
+
+model IncidentAssignment {
+  id           String   @id @default(uuid())
+  incident     Incident @relation(fields: [incidentId], references: [id])
+  incidentId   String
+  assignedTo   User     @relation("AssignedTo", fields: [assignedToId], references: [id])
+  assignedToId String
+  assignedBy   User     @relation("AssignedBy", fields: [assignedById], references: [id])
+  assignedById String
+  assignedAt   DateTime @default(now())
+}
+
+model IncidentComment {
+  id          String   @id @default(uuid())
+  incident    Incident @relation(fields: [incidentId], references: [id])
+  incidentId  String
+  comment     String
+  commentedBy User     @relation(fields: [userId], references: [id])
+  userId      String
+  createdAt   DateTime @default(now())
+}
+
+model IncidentStatusLog {
+  id         String         @id @default(uuid())
+  incident   Incident       @relation(fields: [incidentId], references: [id])
+  incidentId String
+  oldStatus  IncidentStatus?
+  newStatus  IncidentStatus
+  comments   String?
+  changedBy  User           @relation(fields: [userId], references: [id])
+  userId     String
+  changedAt  DateTime       @default(now())
+}
+
+//////////////////////////////////////////////////////
+// INVESTIGATION
+//////////////////////////////////////////////////////
+
+model Investigation {
+  id             String    @id @default(uuid())
+  incident       Incident  @relation(fields: [incidentId], references: [id])
+  incidentId     String
+  practitioner   User      @relation(fields: [practitionerId], references: [id])
+  practitionerId String
+  siteLat        Float?
+  siteLng        Float?
+  notes          String?
+  startedAt      DateTime?
+  completedAt    DateTime?
+}
+
+//////////////////////////////////////////////////////
+// TASKS
+//////////////////////////////////////////////////////
+
+model Task {
+  id           String      @id @default(uuid())
+  title        String
+  description  String?
+  status       TaskStatus  @default(PENDING)
+  dueDate      DateTime?
+  incident     Incident    @relation(fields: [incidentId], references: [id])
+  incidentId   String
+  assignedTo   User        @relation(fields: [assignedToId], references: [id])
+  assignedToId String
+  proofs       TaskProof[]
+  invoices     Invoice[]
+  createdAt    DateTime    @default(now())
+}
+
+model TaskProof {
+  id        String   @id @default(uuid())
+  fileUrl   String
+  task      Task     @relation(fields: [taskId], references: [id])
+  taskId    String
+  createdAt DateTime @default(now())
+}
+
+//////////////////////////////////////////////////////
+// INVOICES
+//////////////////////////////////////////////////////
+
+model Invoice {
+  id          String        @id @default(uuid())
+  invoiceNumber String?
+  amount      Float
+  description String?
+  status      InvoiceStatus @default(PENDING)
+  receivedDate DateTime?    @default(now())
+  task        Task          @relation(fields: [taskId], references: [id])
+  taskId      String
+  createdAt   DateTime      @default(now())
+  incident    Incident?     @relation(fields: [incidentId], references: [id])
+  incidentId  String?
+  actions     InvoiceAction[]
+}
+
+//////////////////////////////////////////////////////
+// SLA & ESCALATION
+//////////////////////////////////////////////////////
+
+model SLA {
+  id                   String                @id @default(uuid())
+  category             String
+  severity             String
+  resolutionMinutes    Int
+  responseMinutes      Int
+  createdAt            DateTime              @default(now())
+  incidentSLATrackings IncidentSLATracking[]
+}
+
+model IncidentSLATracking {
+  id                 String    @id @default(uuid())
+  incident           Incident  @relation(fields: [incidentId], references: [id])
+  incidentId         String    @unique
+  sla                SLA       @relation(fields: [slaId], references: [id])
+  slaId              String
+  responseDueAt      DateTime
+  resolutionDueAt    DateTime
+  responseBreached   Boolean   @default(false)
+  resolutionBreached Boolean   @default(false)
+  breachedAt         DateTime?
+}
+
+model EscalationRule {
+  id               String @id @default(uuid())
+  category         String
+  severity         String
+  breachType       String
+  escalateToRoleId String
+  escalateAfterMin Int
+}
+
+//////////////////////////////////////////////////////
+// NOTIFICATIONS
+//////////////////////////////////////////////////////
+
+model Notification {
+  id          String   @id @default(uuid())
+  title       String
+  message     String
+  module      String
+  referenceId String?
+  user        User     @relation(fields: [userId], references: [id])
+  userId      String
+  isRead      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+}
+
+model SyncQueue {
+  id        String   @id @default(uuid())
+  action    String
+  entity    String
+  entityId  String
+  payload   Json
+  status    String   @default("PENDING")
+  userId    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+//////////////////////////////////////////////////////
+// AUDIT LOG
+//////////////////////////////////////////////////////
+
+model AuditLog {
+  id        String      @id @default(uuid())
+  tableName String
+  recordId  String
+  action    AuditAction
+  oldData   Json?
+  newData   Json?
+  changedBy String?
+  changedAt DateTime    @default(now())
+}
