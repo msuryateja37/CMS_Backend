@@ -116,6 +116,7 @@ model User {
   investigations       Investigation[]
   tasksAssigned        Task[]
   inspectionsConducted Inspection[]         @relation("Inspector")
+  formResponses        FormResponse[]
 }
 
 model Role {
@@ -547,3 +548,79 @@ model AuditLog {
   changedBy String?
   changedAt DateTime    @default(now())
 }
+
+//////////////////////////////////////////////////////
+// DYNAMIC FORMS
+//////////////////////////////////////////////////////
+
+model Form {
+  id          String   @id @default(uuid())
+  title       String
+  description String?
+  version     String?
+  isActive    Boolean  @default(true)
+  createdBy   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  sections    FormSection[]
+  responses   FormResponse[]
+}
+
+model FormSection {
+  id         String   @id @default(uuid())
+  formId     String
+  form       Form     @relation(fields: [formId], references: [id], onDelete: Cascade)
+  title      String
+  orderIndex Int
+  
+  questions  QuestionInput[]
+}
+
+model QuestionInput {
+  id              String   @id @default(uuid())
+  sectionId       String
+  section         FormSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  label           String
+  inputType       String   // text, number, date, textarea, radio, checkbox, select
+  placeholder     String?
+  orderIndex      Int
+  validationRules Json?
+
+  options         QuestionOption[]
+  responses       QuestionResponse[]
+}
+
+model QuestionOption {
+  id            String   @id @default(uuid())
+  questionId    String
+  question      QuestionInput @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  optionLabel   String
+  optionValue   String
+  orderIndex    Int
+  
+  responses     QuestionResponse[]
+}
+
+model FormResponse {
+  id            String   @id @default(uuid())
+  formId        String
+  form          Form     @relation(fields: [formId], references: [id], onDelete: Cascade)
+  submittedBy   String?
+  submitter     User?    @relation(fields: [submittedBy], references: [id])
+  submittedAt   DateTime @default(now())
+  
+  answers       QuestionResponse[]
+}
+
+model QuestionResponse {
+  id               String   @id @default(uuid())
+  responseId       String
+  response         FormResponse @relation(fields: [responseId], references: [id], onDelete: Cascade)
+  questionId       String
+  question         QuestionInput @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  answerText       String?
+  selectedOptionId String?
+  selectedOption   QuestionOption? @relation(fields: [selectedOptionId], references: [id], onDelete: SetNull)
+}
+
