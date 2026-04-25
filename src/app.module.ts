@@ -20,6 +20,7 @@ import { SecurityModule } from './security/security.module';
 
 import { OperationsModule } from './operations/operations.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { FormsModule } from './forms/forms.module';
 
 @Module({
   imports: [
@@ -41,6 +42,7 @@ import { NotificationsModule } from './notifications/notifications.module';
     SecurityModule,
     OperationsModule,
     NotificationsModule,
+    FormsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

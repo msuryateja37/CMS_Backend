@@ -20,7 +20,7 @@ import { UserRole } from '../auth/enums/role.enum';
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('sync')
 export class SyncController {
-  constructor(private readonly sync: SyncService) { }
+  constructor(private readonly sync: SyncService) {}
 
   // 51) Mobile Sync Push (Mobile)
   @Roles(
