@@ -9,7 +9,7 @@ export declare class AuditService {
         action: import("@prisma/client").$Enums.AuditAction;
         tableName: string;
         recordId: string;
-        oldData: import("@prisma/client/runtime/client").JsonValue | null;
-        newData: import("@prisma/client/runtime/client").JsonValue | null;
+        oldData: import("@prisma/client/runtime/library").JsonValue | null;
+        newData: import("@prisma/client/runtime/library").JsonValue | null;
     }[]>;
 }

@@ -16,7 +16,7 @@ export declare class SyncController {
         action: string;
         entity: string;
         entityId: string;
-        payload: import("@prisma/client/runtime/client").JsonValue;
+        payload: import("@prisma/client/runtime/library").JsonValue;
     }[]>;
     resolve(body: any): Promise<{
         id: string;
@@ -27,6 +27,6 @@ export declare class SyncController {
         action: string;
         entity: string;
         entityId: string;
-        payload: import("@prisma/client/runtime/client").JsonValue;
+        payload: import("@prisma/client/runtime/library").JsonValue;
     }>;
 }

@@ -28,7 +28,7 @@ export declare class FormsService {
                 label: string;
                 inputType: string;
                 placeholder: string | null;
-                validationRules: import("@prisma/client/runtime/client").JsonValue | null;
+                validationRules: import("@prisma/client/runtime/library").JsonValue | null;
                 sectionId: string;
             })[];
         } & {

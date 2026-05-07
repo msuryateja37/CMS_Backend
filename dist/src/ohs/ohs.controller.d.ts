@@ -13,7 +13,7 @@ export declare class OhsController {
         riskLevel: string;
         mitigation: string | null;
         createdById: string | null;
-    }, never, import("@prisma/client/runtime/client").DefaultArgs, import("@prisma/client").Prisma.PrismaClientOptions>;
+    }, never, import("@prisma/client/runtime/library").DefaultArgs, import("@prisma/client").Prisma.PrismaClientOptions>;
     listRisks(): import("@prisma/client").Prisma.PrismaPromise<{
         id: string;
         departmentId: string | null;
@@ -32,10 +32,10 @@ export declare class OhsController {
         status: string | null;
         createdById: string | null;
         jobName: string;
-        hazards: import("@prisma/client/runtime/client").JsonValue | null;
-        controls: import("@prisma/client/runtime/client").JsonValue | null;
+        hazards: import("@prisma/client/runtime/library").JsonValue | null;
+        controls: import("@prisma/client/runtime/library").JsonValue | null;
         remarks: string | null;
-    }, never, import("@prisma/client/runtime/client").DefaultArgs, import("@prisma/client").Prisma.PrismaClientOptions>;
+    }, never, import("@prisma/client/runtime/library").DefaultArgs, import("@prisma/client").Prisma.PrismaClientOptions>;
     scheduleInspection(body: any): import("@prisma/client").Prisma.Prisma__InspectionClient<{
         id: string;
         createdAt: Date;
@@ -45,7 +45,7 @@ export declare class OhsController {
         status: string;
         conductedAt: Date | null;
         inspectorId: string | null;
-    }, never, import("@prisma/client/runtime/client").DefaultArgs, import("@prisma/client").Prisma.PrismaClientOptions>;
+    }, never, import("@prisma/client/runtime/library").DefaultArgs, import("@prisma/client").Prisma.PrismaClientOptions>;
     submitInspection(id: string, body: any): Promise<{
         id: string;
         createdAt: Date;
@@ -86,7 +86,7 @@ export declare class OhsController {
         actionRequired: string | null;
         dueDate: Date | null;
         inspectionId: string;
-    }, never, import("@prisma/client/runtime/client").DefaultArgs, import("@prisma/client").Prisma.PrismaClientOptions>;
+    }, never, import("@prisma/client/runtime/library").DefaultArgs, import("@prisma/client").Prisma.PrismaClientOptions>;
     closeFinding(id: string): import("@prisma/client").Prisma.Prisma__InspectionFindingClient<{
         id: string;
         createdAt: Date;
@@ -96,7 +96,7 @@ export declare class OhsController {
         actionRequired: string | null;
         dueDate: Date | null;
         inspectionId: string;
-    }, never, import("@prisma/client/runtime/client").DefaultArgs, import("@prisma/client").Prisma.PrismaClientOptions>;
+    }, never, import("@prisma/client/runtime/library").DefaultArgs, import("@prisma/client").Prisma.PrismaClientOptions>;
     listHazards(): Promise<({
         building: {
             id: string;
@@ -155,8 +155,8 @@ export declare class OhsController {
         status: string | null;
         createdById: string | null;
         jobName: string;
-        hazards: import("@prisma/client/runtime/client").JsonValue | null;
-        controls: import("@prisma/client/runtime/client").JsonValue | null;
+        hazards: import("@prisma/client/runtime/library").JsonValue | null;
+        controls: import("@prisma/client/runtime/library").JsonValue | null;
         remarks: string | null;
     }[]>;
     listSwp(): Promise<never[]>;

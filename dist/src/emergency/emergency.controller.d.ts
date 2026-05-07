@@ -10,7 +10,7 @@ export declare class EmergencyController {
         updatedAt: Date;
         fileUrl: string | null;
         documentPath: string | null;
-    }, never, import("@prisma/client/runtime/client").DefaultArgs, import("@prisma/client").Prisma.PrismaClientOptions>;
+    }, never, import("@prisma/client/runtime/library").DefaultArgs, import("@prisma/client").Prisma.PrismaClientOptions>;
     listPlans(): import("@prisma/client").Prisma.PrismaPromise<{
         id: string;
         createdAt: Date;
@@ -32,7 +32,7 @@ export declare class EmergencyController {
         lastServiceDate: Date | null;
         nextServiceDate: Date | null;
         lastChecked: Date | null;
-    }, never, import("@prisma/client/runtime/client").DefaultArgs, import("@prisma/client").Prisma.PrismaClientOptions>;
+    }, never, import("@prisma/client/runtime/library").DefaultArgs, import("@prisma/client").Prisma.PrismaClientOptions>;
     listEquipment(): import("@prisma/client").Prisma.PrismaPromise<{
         id: string;
         name: string;
@@ -55,7 +55,7 @@ export declare class EmergencyController {
         type: string;
         status: string;
         scheduledDate: Date;
-    }, never, import("@prisma/client/runtime/client").DefaultArgs, import("@prisma/client").Prisma.PrismaClientOptions>;
+    }, never, import("@prisma/client/runtime/library").DefaultArgs, import("@prisma/client").Prisma.PrismaClientOptions>;
     listDrills(): import("@prisma/client").Prisma.PrismaPromise<{
         id: string;
         name: string;

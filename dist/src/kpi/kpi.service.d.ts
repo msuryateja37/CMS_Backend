@@ -10,7 +10,7 @@ export declare class KpiService {
         targetValue: number;
         unit: string;
         frequency: string;
-    }, never, import("@prisma/client/runtime/client").DefaultArgs, import("@prisma/client").Prisma.PrismaClientOptions>;
+    }, never, import("@prisma/client/runtime/library").DefaultArgs, import("@prisma/client").Prisma.PrismaClientOptions>;
     list(): import("@prisma/client").Prisma.PrismaPromise<({
         records: {
             id: string;
@@ -34,7 +34,7 @@ export declare class KpiService {
         period: string;
         recordedAt: Date;
         kpiId: string;
-    }, never, import("@prisma/client/runtime/client").DefaultArgs, import("@prisma/client").Prisma.PrismaClientOptions>;
+    }, never, import("@prisma/client/runtime/library").DefaultArgs, import("@prisma/client").Prisma.PrismaClientOptions>;
     getDashboardMetrics(): Promise<{
         totalCases: number;
         activeCases: number;
