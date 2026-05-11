@@ -29,6 +29,7 @@ const security_module_1 = require("./security/security.module");
 const operations_module_1 = require("./operations/operations.module");
 const notifications_module_1 = require("./notifications/notifications.module");
 const forms_module_1 = require("./forms/forms.module");
+const ocr_module_1 = require("./ocr.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -54,6 +55,7 @@ exports.AppModule = AppModule = __decorate([
             operations_module_1.OperationsModule,
             notifications_module_1.NotificationsModule,
             forms_module_1.FormsModule,
+            ocr_module_1.OcrModule,
         ],
         controllers: [app_controller_1.AppController],
         providers: [app_service_1.AppService],
