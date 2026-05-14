@@ -25,18 +25,21 @@ export class OcrService {
       );
 
     if (!endpoint || !key) {
-      throw new Error(
-        'Azure OCR configuration missing',
+      this.logger.warn(
+        'Azure OCR configuration missing. OCR features will be unavailable.',
+      );
+    } else {
+      this.client = new DocumentAnalysisClient(
+        endpoint,
+        new AzureKeyCredential(key),
       );
     }
-
-    this.client = new DocumentAnalysisClient(
-      endpoint,
-      new AzureKeyCredential(key),
-    );
   }
 
   async scanInvoice(fileBuffer: Buffer) {
+    if (!this.client) {
+      throw new BadRequestException('OCR service is not configured');
+    }
     try {
       /**
        * OCR

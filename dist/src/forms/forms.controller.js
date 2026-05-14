@@ -20,17 +20,50 @@ let FormsController = class FormsController {
     constructor(formsService) {
         this.formsService = formsService;
     }
-    async getForms() {
+    getForms() {
         return this.formsService.getForms();
     }
-    async getFormById(id) {
+    createForm(dto) {
+        return this.formsService.createForm(dto);
+    }
+    getFormById(id) {
         return this.formsService.getFormById(id);
     }
-    async createForm(data) {
-        return this.formsService.createForm(data);
+    getActiveSchema(id) {
+        return this.formsService.getActiveSchema(id);
     }
-    async submitResponse(id, data) {
-        return this.formsService.submitResponse(id, data);
+    getActiveSchemaBySlug(slug) {
+        return this.formsService.getActiveSchemaBySlug(slug);
+    }
+    getVersions(id) {
+        return this.formsService.getVersions(id);
+    }
+    createVersion(formId, dto) {
+        return this.formsService.createVersion(formId, dto);
+    }
+    publishVersion(versionId) {
+        return this.formsService.publishVersion(versionId);
+    }
+    archiveVersion(versionId) {
+        return this.formsService.archiveVersion(versionId);
+    }
+    updateCanvas(versionId, dto) {
+        return this.formsService.updateCanvas(versionId, dto);
+    }
+    submitResponse(formId, dto) {
+        return this.formsService.submitResponse(formId, dto);
+    }
+    getResponses(formId, page, limit) {
+        return this.formsService.getResponses(formId, page, limit);
+    }
+    getResponse(responseId) {
+        return this.formsService.getResponse(responseId);
+    }
+    getQuestionAnalytics(questionId) {
+        return this.formsService.getQuestionAnalytics(questionId);
+    }
+    getFormByTitleKeyword(keyword) {
+        return this.formsService.getFormByTitleKeyword(keyword);
     }
 };
 exports.FormsController = FormsController;
@@ -38,30 +71,111 @@ __decorate([
     (0, common_1.Get)(),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", []),
-    __metadata("design:returntype", Promise)
+    __metadata("design:returntype", void 0)
 ], FormsController.prototype, "getForms", null);
+__decorate([
+    (0, common_1.Post)(),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Function]),
+    __metadata("design:returntype", void 0)
+], FormsController.prototype, "createForm", null);
 __decorate([
     (0, common_1.Get)(':id'),
     __param(0, (0, common_1.Param)('id')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
-    __metadata("design:returntype", Promise)
+    __metadata("design:returntype", void 0)
 ], FormsController.prototype, "getFormById", null);
 __decorate([
-    (0, common_1.Post)(),
-    __param(0, (0, common_1.Body)()),
+    (0, common_1.Get)(':id/schema'),
+    __param(0, (0, common_1.Param)('id')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
-    __metadata("design:returntype", Promise)
-], FormsController.prototype, "createForm", null);
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", void 0)
+], FormsController.prototype, "getActiveSchema", null);
+__decorate([
+    (0, common_1.Get)('by-slug/:slug'),
+    __param(0, (0, common_1.Param)('slug')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", void 0)
+], FormsController.prototype, "getActiveSchemaBySlug", null);
+__decorate([
+    (0, common_1.Get)(':id/versions'),
+    __param(0, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", void 0)
+], FormsController.prototype, "getVersions", null);
+__decorate([
+    (0, common_1.Post)(':id/versions'),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Function]),
+    __metadata("design:returntype", void 0)
+], FormsController.prototype, "createVersion", null);
+__decorate([
+    (0, common_1.Patch)('versions/:versionId/publish'),
+    __param(0, (0, common_1.Param)('versionId')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", void 0)
+], FormsController.prototype, "publishVersion", null);
+__decorate([
+    (0, common_1.Patch)('versions/:versionId/archive'),
+    __param(0, (0, common_1.Param)('versionId')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", void 0)
+], FormsController.prototype, "archiveVersion", null);
+__decorate([
+    (0, common_1.Patch)('versions/:versionId/canvas'),
+    __param(0, (0, common_1.Param)('versionId')),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Function]),
+    __metadata("design:returntype", void 0)
+], FormsController.prototype, "updateCanvas", null);
 __decorate([
     (0, common_1.Post)(':id/responses'),
     __param(0, (0, common_1.Param)('id')),
     __param(1, (0, common_1.Body)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, Object]),
-    __metadata("design:returntype", Promise)
+    __metadata("design:paramtypes", [String, Function]),
+    __metadata("design:returntype", void 0)
 ], FormsController.prototype, "submitResponse", null);
+__decorate([
+    (0, common_1.Get)(':id/responses'),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Query)('page', new common_1.DefaultValuePipe(1), common_1.ParseIntPipe)),
+    __param(2, (0, common_1.Query)('limit', new common_1.DefaultValuePipe(20), common_1.ParseIntPipe)),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Number, Number]),
+    __metadata("design:returntype", void 0)
+], FormsController.prototype, "getResponses", null);
+__decorate([
+    (0, common_1.Get)('responses/:responseId'),
+    __param(0, (0, common_1.Param)('responseId')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", void 0)
+], FormsController.prototype, "getResponse", null);
+__decorate([
+    (0, common_1.Get)('analytics/question/:questionId'),
+    __param(0, (0, common_1.Param)('questionId')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", void 0)
+], FormsController.prototype, "getQuestionAnalytics", null);
+__decorate([
+    (0, common_1.Get)('search/by-title'),
+    __param(0, (0, common_1.Query)('q')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", void 0)
+], FormsController.prototype, "getFormByTitleKeyword", null);
 exports.FormsController = FormsController = __decorate([
     (0, common_1.Controller)('forms'),
     __metadata("design:paramtypes", [forms_service_1.FormsService])

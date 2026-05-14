@@ -16,6 +16,7 @@ export declare class SecurityController {
         description: string;
         buildingId: string;
         updatedAt: Date;
+        status: import("@prisma/client").$Enums.IncidentStatus;
         latitude: number | null;
         longitude: number | null;
         type: string | null;
@@ -27,7 +28,6 @@ export declare class SecurityController {
         impact: string | null;
         location: string | null;
         peopleImpacted: number | null;
-        status: import("@prisma/client").$Enums.IncidentStatus;
         reportedById: string;
         occurredAt: Date;
         isEscalated: boolean;
@@ -53,6 +53,7 @@ export declare class SecurityController {
         description: string;
         buildingId: string;
         updatedAt: Date;
+        status: import("@prisma/client").$Enums.IncidentStatus;
         latitude: number | null;
         longitude: number | null;
         type: string | null;
@@ -64,7 +65,6 @@ export declare class SecurityController {
         impact: string | null;
         location: string | null;
         peopleImpacted: number | null;
-        status: import("@prisma/client").$Enums.IncidentStatus;
         reportedById: string;
         occurredAt: Date;
         isEscalated: boolean;

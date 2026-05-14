@@ -6,8 +6,8 @@ export declare class PdcaController {
         id: string;
         createdAt: Date;
         description: string | null;
-        title: string;
         updatedAt: Date;
+        title: string;
         status: string;
         phase: string;
         ownerId: string | null;
@@ -16,8 +16,8 @@ export declare class PdcaController {
         id: string;
         createdAt: Date;
         description: string | null;
-        title: string;
         updatedAt: Date;
+        title: string;
         status: string;
         phase: string;
         ownerId: string | null;
@@ -26,8 +26,8 @@ export declare class PdcaController {
         id: string;
         createdAt: Date;
         description: string | null;
-        title: string;
         updatedAt: Date;
+        title: string;
         status: string;
         phase: string;
         ownerId: string | null;

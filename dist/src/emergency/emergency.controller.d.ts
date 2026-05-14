@@ -5,19 +5,19 @@ export declare class EmergencyController {
     uploadPlan(body: any): import("@prisma/client").Prisma.Prisma__EmergencyPlanClient<{
         id: string;
         createdAt: Date;
-        title: string;
-        version: string;
         updatedAt: Date;
+        title: string;
         fileUrl: string | null;
+        version: string;
         documentPath: string | null;
     }, never, import("@prisma/client/runtime/library").DefaultArgs, import("@prisma/client").Prisma.PrismaClientOptions>;
     listPlans(): import("@prisma/client").Prisma.PrismaPromise<{
         id: string;
         createdAt: Date;
-        title: string;
-        version: string;
         updatedAt: Date;
+        title: string;
         fileUrl: string | null;
+        version: string;
         documentPath: string | null;
     }[]>;
     registerEquipment(body: any): import("@prisma/client").Prisma.Prisma__EquipmentClient<{
@@ -26,8 +26,8 @@ export declare class EmergencyController {
         createdAt: Date;
         buildingId: string | null;
         updatedAt: Date;
-        type: string;
         status: string;
+        type: string;
         serialNumber: string | null;
         lastServiceDate: Date | null;
         nextServiceDate: Date | null;
@@ -39,8 +39,8 @@ export declare class EmergencyController {
         createdAt: Date;
         buildingId: string | null;
         updatedAt: Date;
-        type: string;
         status: string;
+        type: string;
         serialNumber: string | null;
         lastServiceDate: Date | null;
         nextServiceDate: Date | null;
@@ -52,8 +52,8 @@ export declare class EmergencyController {
         createdAt: Date;
         buildingId: string | null;
         updatedAt: Date;
-        type: string;
         status: string;
+        type: string;
         scheduledDate: Date;
     }, never, import("@prisma/client/runtime/library").DefaultArgs, import("@prisma/client").Prisma.PrismaClientOptions>;
     listDrills(): import("@prisma/client").Prisma.PrismaPromise<{
@@ -62,8 +62,8 @@ export declare class EmergencyController {
         createdAt: Date;
         buildingId: string | null;
         updatedAt: Date;
-        type: string;
         status: string;
+        type: string;
         scheduledDate: Date;
     }[]>;
 }

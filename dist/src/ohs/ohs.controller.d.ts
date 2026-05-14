@@ -8,8 +8,8 @@ export declare class OhsController {
         departmentId: string | null;
         createdAt: Date;
         description: string | null;
-        title: string;
         updatedAt: Date;
+        title: string;
         riskLevel: string;
         mitigation: string | null;
         createdById: string | null;
@@ -19,8 +19,8 @@ export declare class OhsController {
         departmentId: string | null;
         createdAt: Date;
         description: string | null;
-        title: string;
         updatedAt: Date;
+        title: string;
         riskLevel: string;
         mitigation: string | null;
         createdById: string | null;
@@ -41,8 +41,8 @@ export declare class OhsController {
         createdAt: Date;
         buildingId: string | null;
         updatedAt: Date;
-        type: string;
         status: string;
+        type: string;
         conductedAt: Date | null;
         inspectorId: string | null;
     }, never, import("@prisma/client/runtime/library").DefaultArgs, import("@prisma/client").Prisma.PrismaClientOptions>;
@@ -51,8 +51,8 @@ export declare class OhsController {
         createdAt: Date;
         buildingId: string | null;
         updatedAt: Date;
-        type: string;
         status: string;
+        type: string;
         conductedAt: Date | null;
         inspectorId: string | null;
     }>;
@@ -72,8 +72,8 @@ export declare class OhsController {
         createdAt: Date;
         buildingId: string | null;
         updatedAt: Date;
-        type: string;
         status: string;
+        type: string;
         conductedAt: Date | null;
         inspectorId: string | null;
     })[]>;
@@ -130,6 +130,7 @@ export declare class OhsController {
         description: string;
         buildingId: string;
         updatedAt: Date;
+        status: import("@prisma/client").$Enums.IncidentStatus;
         latitude: number | null;
         longitude: number | null;
         type: string | null;
@@ -141,7 +142,6 @@ export declare class OhsController {
         impact: string | null;
         location: string | null;
         peopleImpacted: number | null;
-        status: import("@prisma/client").$Enums.IncidentStatus;
         reportedById: string;
         occurredAt: Date;
         isEscalated: boolean;
