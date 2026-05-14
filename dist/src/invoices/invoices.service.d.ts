@@ -11,7 +11,6 @@ export declare class InvoicesService {
         invoiceNumber: string | null;
         amount: number;
         receivedDate: Date | null;
-        taskId: string;
     }>;
     list(status?: string): import("@prisma/client").Prisma.PrismaPromise<{
         id: string;
@@ -22,7 +21,6 @@ export declare class InvoicesService {
         invoiceNumber: string | null;
         amount: number;
         receivedDate: Date | null;
-        taskId: string;
     }[]>;
     getById(id: string): Promise<{
         id: string;
@@ -33,7 +31,6 @@ export declare class InvoicesService {
         invoiceNumber: string | null;
         amount: number;
         receivedDate: Date | null;
-        taskId: string;
     }>;
     transition(id: string, newStatus: string, performedById: string, note?: string): Promise<{
         id: string;
@@ -44,7 +41,6 @@ export declare class InvoicesService {
         invoiceNumber: string | null;
         amount: number;
         receivedDate: Date | null;
-        taskId: string;
     }>;
     actions(invoiceId: string): import("@prisma/client").Prisma.PrismaPromise<{
         id: string;

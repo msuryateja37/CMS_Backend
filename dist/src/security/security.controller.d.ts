@@ -30,6 +30,7 @@ export declare class SecurityController {
         peopleImpacted: number | null;
         reportedById: string;
         occurredAt: Date;
+        incidentPlan: string | null;
         isEscalated: boolean;
         escalatedAt: Date | null;
         escalationReason: string | null;
@@ -67,6 +68,7 @@ export declare class SecurityController {
         peopleImpacted: number | null;
         reportedById: string;
         occurredAt: Date;
+        incidentPlan: string | null;
         isEscalated: boolean;
         escalatedAt: Date | null;
         escalationReason: string | null;

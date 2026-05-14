@@ -12,7 +12,6 @@ export declare class InvoicesController {
         invoiceNumber: string | null;
         amount: number;
         receivedDate: Date | null;
-        taskId: string;
     }>;
     list(status?: string): import("@prisma/client").Prisma.PrismaPromise<{
         id: string;
@@ -23,7 +22,6 @@ export declare class InvoicesController {
         invoiceNumber: string | null;
         amount: number;
         receivedDate: Date | null;
-        taskId: string;
     }[]>;
     get(id: string): Promise<{
         id: string;
@@ -34,7 +32,6 @@ export declare class InvoicesController {
         invoiceNumber: string | null;
         amount: number;
         receivedDate: Date | null;
-        taskId: string;
     }>;
     approve(req: Request, id: string): Promise<{
         id: string;
@@ -45,7 +42,6 @@ export declare class InvoicesController {
         invoiceNumber: string | null;
         amount: number;
         receivedDate: Date | null;
-        taskId: string;
     }>;
     reject(req: Request, id: string, body: {
         reason: string;
@@ -58,7 +54,6 @@ export declare class InvoicesController {
         invoiceNumber: string | null;
         amount: number;
         receivedDate: Date | null;
-        taskId: string;
     }>;
     actions(id: string): import("@prisma/client").Prisma.PrismaPromise<{
         id: string;
@@ -76,6 +71,5 @@ export declare class InvoicesController {
         invoiceNumber: string | null;
         amount: number;
         receivedDate: Date | null;
-        taskId: string;
     }>;
 }

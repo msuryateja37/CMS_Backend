@@ -26,11 +26,7 @@ export class InvoicesService {
         amount: body.amount,
         receivedDate: new Date(body.receivedDate),
         status: 'PENDING', // Default to PENDING as RECEIVED is not in Enum
-        taskId: body.taskId, // Required link to Task? Or optional? Schema says Task relation is required!
-        // Wait, Schema: task Task @relation... taskId String. REQUIRED.
-        // Code wasn't passing taskId! This would fail at runtime too.
-        // Assuming body has taskId or we need to handle it.
-        // I'll add taskId: body.taskId and hope it's provided.
+        incidentId: body.incidentId,
       },
     });
   }

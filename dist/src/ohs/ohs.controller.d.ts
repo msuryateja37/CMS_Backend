@@ -62,9 +62,9 @@ export declare class OhsController {
             createdAt: Date;
             updatedAt: Date;
             status: string;
+            dueDate: Date | null;
             finding: string;
             actionRequired: string | null;
-            dueDate: Date | null;
             inspectionId: string;
         }[];
     } & {
@@ -82,9 +82,9 @@ export declare class OhsController {
         createdAt: Date;
         updatedAt: Date;
         status: string;
+        dueDate: Date | null;
         finding: string;
         actionRequired: string | null;
-        dueDate: Date | null;
         inspectionId: string;
     }, never, import("@prisma/client/runtime/library").DefaultArgs, import("@prisma/client").Prisma.PrismaClientOptions>;
     closeFinding(id: string): import("@prisma/client").Prisma.Prisma__InspectionFindingClient<{
@@ -92,9 +92,9 @@ export declare class OhsController {
         createdAt: Date;
         updatedAt: Date;
         status: string;
+        dueDate: Date | null;
         finding: string;
         actionRequired: string | null;
-        dueDate: Date | null;
         inspectionId: string;
     }, never, import("@prisma/client/runtime/library").DefaultArgs, import("@prisma/client").Prisma.PrismaClientOptions>;
     listHazards(): Promise<({
@@ -144,6 +144,7 @@ export declare class OhsController {
         peopleImpacted: number | null;
         reportedById: string;
         occurredAt: Date;
+        incidentPlan: string | null;
         isEscalated: boolean;
         escalatedAt: Date | null;
         escalationReason: string | null;

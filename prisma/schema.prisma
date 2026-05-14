@@ -24,11 +24,7 @@ enum IncidentStatus {
   CLOSED
 }
 
-enum TaskStatus {
-  PENDING
-  IN_PROGRESS
-  COMPLETED
-}
+
 
 enum InvoiceStatus {
   PENDING
@@ -106,7 +102,7 @@ model User {
   lastLoginAt DateTime?
   deletedAt DateTime?
 
-  // Back-relations for Incident/Task/etc.
+  // Back-relations for Incident and related entities
   reportedIncidents    Incident[]           @relation("ReportedBy")
   assignedIncidents    IncidentAssignment[] @relation("AssignedTo")
   assignedByIncidents  IncidentAssignment[] @relation("AssignedBy")
@@ -114,7 +110,7 @@ model User {
   incidentStatusLogs   IncidentStatusLog[]
   uploadedMedia        IncidentMedia[]      @relation("MediaUploader")
   investigations       Investigation[]
-  tasksAssigned        Task[]
+  approvalsUploaded    Approval[]
   inspectionsConducted Inspection[]         @relation("Inspector")
   formResponses        FormResponse[]
   formsCreated         Form[]               @relation("FormCreator")
@@ -184,7 +180,9 @@ model Incident {
   longitude  Float?
   occurredAt DateTime
 
-  tasks           Task[]
+  correctiveActions CorrectiveAction[]
+  approvals         Approval[]
+  incidentPlan      String?
   investigations  Investigation[]
   invoices        Invoice[]
   slaTracking     IncidentSLATracking?
@@ -427,30 +425,46 @@ model Investigation {
 }
 
 //////////////////////////////////////////////////////
-// TASKS
+// CORRECTIVE ACTIONS & APPROVALS
 //////////////////////////////////////////////////////
 
-model Task {
+model CorrectiveAction {
   id           String      @id @default(uuid())
-  title        String
-  description  String?
-  status       TaskStatus  @default(PENDING)
+  actionText   String      @db.Text
+  status       String      @default("pending") // pending | in_progress | completed
   dueDate      DateTime?
-  incident     Incident    @relation(fields: [incidentId], references: [id])
+  completedAt  DateTime?
+  notes        String?     @db.Text
+  incident     Incident    @relation(fields: [incidentId], references: [id], onDelete: Cascade)
   incidentId   String
-  assignedTo   User        @relation(fields: [assignedToId], references: [id])
-  assignedToId String
-  proofs       TaskProof[]
-  invoices     Invoice[]
   createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
 }
 
-model TaskProof {
-  id        String   @id @default(uuid())
-  fileUrl   String
-  task      Task     @relation(fields: [taskId], references: [id])
-  taskId    String
-  createdAt DateTime @default(now())
+model Approval {
+  id                   String                 @id @default(uuid())
+  roleName             String
+  recommenderName      String?
+  recommendationText   String?                @db.Text
+  incident             Incident               @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  incidentId           String
+  uploadedBy           User?                  @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+  uploadedById         String?
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
+  attachments          ApprovalAttachment[]
+}
+
+model ApprovalAttachment {
+  id         String   @id @default(uuid())
+  fileUrl    String
+  fileName   String?
+  fileType   String?
+  approval   Approval @relation(fields: [approvalId], references: [id], onDelete: Cascade)
+  approvalId String
+  createdAt  DateTime @default(now())
+
+  @@index([approvalId])
 }
 
 //////////////////////////////////////////////////////
@@ -464,8 +478,7 @@ model Invoice {
   description String?
   status      InvoiceStatus @default(PENDING)
   receivedDate DateTime?    @default(now())
-  task        Task          @relation(fields: [taskId], references: [id])
-  taskId      String
+
   createdAt   DateTime      @default(now())
   incident    Incident?     @relation(fields: [incidentId], references: [id])
   incidentId  String?

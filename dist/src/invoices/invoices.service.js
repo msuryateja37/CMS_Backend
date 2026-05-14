@@ -33,7 +33,7 @@ let InvoicesService = class InvoicesService {
                 amount: body.amount,
                 receivedDate: new Date(body.receivedDate),
                 status: 'PENDING',
-                taskId: body.taskId,
+                incidentId: body.incidentId,
             },
         });
     }

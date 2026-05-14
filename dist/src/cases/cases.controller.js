@@ -74,8 +74,9 @@ let CasesController = class CasesController {
     async get(id) {
         return this.cases.getById(id);
     }
-    async update(id, body) {
-        return this.cases.update(id, body);
+    async update(req, id, body) {
+        const user = req.user;
+        return this.cases.update(id, body, user.sub);
     }
     async assign(req, id, body) {
         const user = req.user;
@@ -95,6 +96,28 @@ let CasesController = class CasesController {
     }
     async listEvidence(id) {
         return this.cases.listEvidence(id);
+    }
+    async addCorrectiveAction(id, body) {
+        return this.cases.addCorrectiveAction(id, body.actionText);
+    }
+    async patchCorrectiveAction(id, actionId, body) {
+        return this.cases.updateCorrectiveAction(id, actionId, body);
+    }
+    async addApproval(req, id, body) {
+        const user = req.user;
+        return this.cases.addApproval(id, body, user.sub);
+    }
+    async putApproval(id, approvalId, body) {
+        return this.cases.updateApproval(id, approvalId, body);
+    }
+    async postApprovalAttachment(id, approvalId, body) {
+        return this.cases.addApprovalAttachment(id, approvalId, body);
+    }
+    async deleteApprovalAttachment(id, approvalId, attachmentId) {
+        return this.cases.deleteApprovalAttachment(id, approvalId, attachmentId);
+    }
+    async deleteApproval(id, approvalId) {
+        return this.cases.deleteApproval(id, approvalId);
     }
     async createEscalationConfig(id, body) {
         return this.cases.createEscalationConfig(id, body);
@@ -248,10 +271,11 @@ __decorate([
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
     (0, roles_decorator_1.Roles)(role_enum_1.UserRole.SUPERVISOR, role_enum_1.UserRole.MANAGER, role_enum_1.UserRole.SYSTEM_ADMINISTRATOR, role_enum_1.UserRole.OHS_PRACTITIONER),
     (0, common_1.Put)(':id'),
-    __param(0, (0, common_1.Param)('id')),
-    __param(1, (0, common_1.Body)()),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Param)('id')),
+    __param(2, (0, common_1.Body)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:paramtypes", [Object, String, Object]),
     __metadata("design:returntype", Promise)
 ], CasesController.prototype, "update", null);
 __decorate([
@@ -310,6 +334,81 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
 ], CasesController.prototype, "listEvidence", null);
+__decorate([
+    (0, swagger_1.ApiBearerAuth)(),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    (0, common_1.Post)(':id/corrective-actions'),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], CasesController.prototype, "addCorrectiveAction", null);
+__decorate([
+    (0, swagger_1.ApiBearerAuth)(),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    (0, common_1.Patch)(':id/corrective-actions/:actionId'),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Param)('actionId')),
+    __param(2, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, Object]),
+    __metadata("design:returntype", Promise)
+], CasesController.prototype, "patchCorrectiveAction", null);
+__decorate([
+    (0, swagger_1.ApiBearerAuth)(),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    (0, common_1.Post)(':id/approvals'),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Param)('id')),
+    __param(2, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, Object]),
+    __metadata("design:returntype", Promise)
+], CasesController.prototype, "addApproval", null);
+__decorate([
+    (0, swagger_1.ApiBearerAuth)(),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    (0, common_1.Put)(':id/approvals/:approvalId'),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Param)('approvalId')),
+    __param(2, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, Object]),
+    __metadata("design:returntype", Promise)
+], CasesController.prototype, "putApproval", null);
+__decorate([
+    (0, swagger_1.ApiBearerAuth)(),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    (0, common_1.Post)(':id/approvals/:approvalId/attachments'),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Param)('approvalId')),
+    __param(2, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, Object]),
+    __metadata("design:returntype", Promise)
+], CasesController.prototype, "postApprovalAttachment", null);
+__decorate([
+    (0, swagger_1.ApiBearerAuth)(),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    (0, common_1.Delete)(':id/approvals/:approvalId/attachments/:attachmentId'),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Param)('approvalId')),
+    __param(2, (0, common_1.Param)('attachmentId')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, String]),
+    __metadata("design:returntype", Promise)
+], CasesController.prototype, "deleteApprovalAttachment", null);
+__decorate([
+    (0, swagger_1.ApiBearerAuth)(),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    (0, common_1.Delete)(':id/approvals/:approvalId'),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Param)('approvalId')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", Promise)
+], CasesController.prototype, "deleteApproval", null);
 __decorate([
     (0, swagger_1.ApiBearerAuth)(),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),

@@ -22,35 +22,26 @@ export declare class CasesService {
         };
         media: {
             id: string;
-            incidentId: string;
             fileUrl: string;
             fileType: string;
             uploaderRole: string | null;
             uploadedAt: Date;
             uploadedById: string | null;
+            incidentId: string;
         }[];
         impactedPeople: {
             id: string;
+            createdAt: Date;
             name: string;
             email: string;
             phone: string | null;
-            createdAt: Date;
             incidentId: string;
         }[];
     } & {
         id: string;
-        departmentId: string | null;
-        createdAt: Date;
-        isActive: boolean;
-        deletedAt: Date | null;
-        description: string;
-        buildingId: string;
-        updatedAt: Date;
-        status: import("@prisma/client").$Enums.IncidentStatus;
-        latitude: number | null;
-        longitude: number | null;
-        type: string | null;
         incidentNumber: string;
+        type: string | null;
+        description: string;
         category: string;
         severity: string;
         immediateActions: string | null;
@@ -58,11 +49,21 @@ export declare class CasesService {
         impact: string | null;
         location: string | null;
         peopleImpacted: number | null;
-        reportedById: string;
+        status: import("@prisma/client").$Enums.IncidentStatus;
+        latitude: number | null;
+        longitude: number | null;
         occurredAt: Date;
+        incidentPlan: string | null;
+        createdAt: Date;
+        updatedAt: Date;
         isEscalated: boolean;
         escalatedAt: Date | null;
         escalationReason: string | null;
+        isActive: boolean;
+        deletedAt: Date | null;
+        buildingId: string;
+        departmentId: string | null;
+        reportedById: string;
     }>;
     list(query: any): Promise<{
         data: any[];
@@ -71,35 +72,26 @@ export declare class CasesService {
     getById(idOrNumber: string): Promise<any>;
     assign(id: string, assignedToId: string, assignedById: string): Promise<any>;
     update(id: string, body: any, userId?: string): Promise<{
-        department: {
-            id: string;
-            name: string;
-            buildingId: string | null;
-        } | null;
         building: {
             id: string;
-            name: string;
-            provinceId: string;
-            createdAt: Date;
-            address: string | null;
-            postalCode: string | null;
             latitude: number | null;
             longitude: number | null;
+            createdAt: Date;
+            name: string;
+            provinceId: string;
+            address: string | null;
+            postalCode: string | null;
         };
+        department: {
+            id: string;
+            buildingId: string | null;
+            name: string;
+        } | null;
     } & {
         id: string;
-        departmentId: string | null;
-        createdAt: Date;
-        isActive: boolean;
-        deletedAt: Date | null;
-        description: string;
-        buildingId: string;
-        updatedAt: Date;
-        status: import("@prisma/client").$Enums.IncidentStatus;
-        latitude: number | null;
-        longitude: number | null;
-        type: string | null;
         incidentNumber: string;
+        type: string | null;
+        description: string;
         category: string;
         severity: string;
         immediateActions: string | null;
@@ -107,26 +99,27 @@ export declare class CasesService {
         impact: string | null;
         location: string | null;
         peopleImpacted: number | null;
-        reportedById: string;
+        status: import("@prisma/client").$Enums.IncidentStatus;
+        latitude: number | null;
+        longitude: number | null;
         occurredAt: Date;
+        incidentPlan: string | null;
+        createdAt: Date;
+        updatedAt: Date;
         isEscalated: boolean;
         escalatedAt: Date | null;
         escalationReason: string | null;
+        isActive: boolean;
+        deletedAt: Date | null;
+        buildingId: string;
+        departmentId: string | null;
+        reportedById: string;
     }>;
     updateStatus(id: string, status: any, userId?: string): Promise<{
         id: string;
-        departmentId: string | null;
-        createdAt: Date;
-        isActive: boolean;
-        deletedAt: Date | null;
-        description: string;
-        buildingId: string;
-        updatedAt: Date;
-        status: import("@prisma/client").$Enums.IncidentStatus;
-        latitude: number | null;
-        longitude: number | null;
-        type: string | null;
         incidentNumber: string;
+        type: string | null;
+        description: string;
         category: string;
         severity: string;
         immediateActions: string | null;
@@ -134,11 +127,21 @@ export declare class CasesService {
         impact: string | null;
         location: string | null;
         peopleImpacted: number | null;
-        reportedById: string;
+        status: import("@prisma/client").$Enums.IncidentStatus;
+        latitude: number | null;
+        longitude: number | null;
         occurredAt: Date;
+        incidentPlan: string | null;
+        createdAt: Date;
+        updatedAt: Date;
         isEscalated: boolean;
         escalatedAt: Date | null;
         escalationReason: string | null;
+        isActive: boolean;
+        deletedAt: Date | null;
+        buildingId: string;
+        departmentId: string | null;
+        reportedById: string;
     }>;
     escalate(id: string, userId: string, body: {
         assignedToId: string;
@@ -147,35 +150,73 @@ export declare class CasesService {
     addEvidence(caseId: string, uploadedById: string, body: any): Promise<{
         fileUrl: string;
         id: string;
-        incidentId: string;
         fileType: string;
         uploaderRole: string | null;
         uploadedAt: Date;
         uploadedById: string | null;
+        incidentId: string;
     }>;
     listEvidence(caseId: string): Promise<{
         fileUrl: string;
         id: string;
-        incidentId: string;
         fileType: string;
         uploaderRole: string | null;
         uploadedAt: Date;
         uploadedById: string | null;
+        incidentId: string;
     }[]>;
+    addCorrectiveAction(incidentId: string, actionText: string): Promise<{
+        id: string;
+        status: string;
+        createdAt: Date;
+        updatedAt: Date;
+        incidentId: string;
+        actionText: string;
+        dueDate: Date | null;
+        completedAt: Date | null;
+        notes: string | null;
+    }>;
+    updateCorrectiveAction(incidentId: string, actionId: string, body: {
+        actionText?: string;
+        status?: string;
+        dueDate?: string | null;
+        notes?: string | null;
+        completedAt?: string | null;
+    }): Promise<{
+        id: string;
+        status: string;
+        createdAt: Date;
+        updatedAt: Date;
+        incidentId: string;
+        actionText: string;
+        dueDate: Date | null;
+        completedAt: Date | null;
+        notes: string | null;
+    }>;
+    private signApprovalRecord;
+    private assertCorrectiveActionOnIncident;
+    private assertApprovalOnIncident;
+    addApproval(incidentId: string, body: any, uploadedById: string): Promise<any>;
+    updateApproval(incidentId: string, approvalId: string, body: any): Promise<any>;
+    addApprovalAttachment(incidentId: string, approvalId: string, body: any): Promise<{
+        fileUrl: string;
+        id: string;
+        createdAt: Date;
+        fileType: string | null;
+        fileName: string | null;
+        approvalId: string;
+    }>;
+    deleteApprovalAttachment(incidentId: string, approvalId: string, attachmentId: string): Promise<{
+        ok: boolean;
+    }>;
+    deleteApproval(incidentId: string, approvalId: string): Promise<{
+        ok: boolean;
+    }>;
     close(id: string, userId: string): Promise<{
         id: string;
-        departmentId: string | null;
-        createdAt: Date;
-        isActive: boolean;
-        deletedAt: Date | null;
-        description: string;
-        buildingId: string;
-        updatedAt: Date;
-        status: import("@prisma/client").$Enums.IncidentStatus;
-        latitude: number | null;
-        longitude: number | null;
-        type: string | null;
         incidentNumber: string;
+        type: string | null;
+        description: string;
         category: string;
         severity: string;
         immediateActions: string | null;
@@ -183,11 +224,21 @@ export declare class CasesService {
         impact: string | null;
         location: string | null;
         peopleImpacted: number | null;
-        reportedById: string;
+        status: import("@prisma/client").$Enums.IncidentStatus;
+        latitude: number | null;
+        longitude: number | null;
         occurredAt: Date;
+        incidentPlan: string | null;
+        createdAt: Date;
+        updatedAt: Date;
         isEscalated: boolean;
         escalatedAt: Date | null;
         escalationReason: string | null;
+        isActive: boolean;
+        deletedAt: Date | null;
+        buildingId: string;
+        departmentId: string | null;
+        reportedById: string;
     }>;
     listCategories(): Promise<{
         id: string;
@@ -200,18 +251,9 @@ export declare class CasesService {
     deleteCategory(_id: string): Promise<{}>;
     softDelete(id: string): Promise<{
         id: string;
-        departmentId: string | null;
-        createdAt: Date;
-        isActive: boolean;
-        deletedAt: Date | null;
-        description: string;
-        buildingId: string;
-        updatedAt: Date;
-        status: import("@prisma/client").$Enums.IncidentStatus;
-        latitude: number | null;
-        longitude: number | null;
-        type: string | null;
         incidentNumber: string;
+        type: string | null;
+        description: string;
         category: string;
         severity: string;
         immediateActions: string | null;
@@ -219,11 +261,21 @@ export declare class CasesService {
         impact: string | null;
         location: string | null;
         peopleImpacted: number | null;
-        reportedById: string;
+        status: import("@prisma/client").$Enums.IncidentStatus;
+        latitude: number | null;
+        longitude: number | null;
         occurredAt: Date;
+        incidentPlan: string | null;
+        createdAt: Date;
+        updatedAt: Date;
         isEscalated: boolean;
         escalatedAt: Date | null;
         escalationReason: string | null;
+        isActive: boolean;
+        deletedAt: Date | null;
+        buildingId: string;
+        departmentId: string | null;
+        reportedById: string;
     }>;
     createEscalationConfig(_caseId: string, _body: any): Promise<{}>;
     getEscalationConfig(_caseId: string): Promise<{}>;
@@ -250,18 +302,19 @@ export declare class CasesService {
         };
         createdAt: Date;
     }[]>;
+    private appendIncidentTimeline;
+    private parseTimelinePayload;
     getActivityTimeline(idOrNumber: string): Promise<{
         id: string;
+        category: string;
         type: string;
-        oldStatus: import("@prisma/client").$Enums.IncidentStatus | null;
-        newStatus: import("@prisma/client").$Enums.IncidentStatus;
         description: string;
         user: {
             id: string;
             name: string;
-            email: string;
-        };
-        timestamp: Date;
+            email?: string;
+        } | undefined;
+        timestamp: string;
     }[]>;
     getSlaTracking(): Promise<{
         id: string;

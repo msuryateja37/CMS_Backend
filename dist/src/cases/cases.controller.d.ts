@@ -27,35 +27,26 @@ export declare class CasesController {
         };
         media: {
             id: string;
-            incidentId: string;
             fileUrl: string;
             fileType: string;
             uploaderRole: string | null;
             uploadedAt: Date;
             uploadedById: string | null;
+            incidentId: string;
         }[];
         impactedPeople: {
             id: string;
+            createdAt: Date;
             name: string;
             email: string;
             phone: string | null;
-            createdAt: Date;
             incidentId: string;
         }[];
     } & {
         id: string;
-        departmentId: string | null;
-        createdAt: Date;
-        isActive: boolean;
-        deletedAt: Date | null;
-        description: string;
-        buildingId: string;
-        updatedAt: Date;
-        status: import("@prisma/client").$Enums.IncidentStatus;
-        latitude: number | null;
-        longitude: number | null;
-        type: string | null;
         incidentNumber: string;
+        type: string | null;
+        description: string;
         category: string;
         severity: string;
         immediateActions: string | null;
@@ -63,11 +54,21 @@ export declare class CasesController {
         impact: string | null;
         location: string | null;
         peopleImpacted: number | null;
-        reportedById: string;
+        status: import("@prisma/client").$Enums.IncidentStatus;
+        latitude: number | null;
+        longitude: number | null;
         occurredAt: Date;
+        incidentPlan: string | null;
+        createdAt: Date;
+        updatedAt: Date;
         isEscalated: boolean;
         escalatedAt: Date | null;
         escalationReason: string | null;
+        isActive: boolean;
+        deletedAt: Date | null;
+        buildingId: string;
+        departmentId: string | null;
+        reportedById: string;
     }>;
     list(query: any): Promise<{
         data: any[];
@@ -124,36 +125,27 @@ export declare class CasesController {
         slaStatus: string;
     }[]>;
     get(id: string): Promise<any>;
-    update(id: string, body: any): Promise<{
-        department: {
-            id: string;
-            name: string;
-            buildingId: string | null;
-        } | null;
+    update(req: Request, id: string, body: any): Promise<{
         building: {
             id: string;
-            name: string;
-            provinceId: string;
-            createdAt: Date;
-            address: string | null;
-            postalCode: string | null;
             latitude: number | null;
             longitude: number | null;
+            createdAt: Date;
+            name: string;
+            provinceId: string;
+            address: string | null;
+            postalCode: string | null;
         };
+        department: {
+            id: string;
+            buildingId: string | null;
+            name: string;
+        } | null;
     } & {
         id: string;
-        departmentId: string | null;
-        createdAt: Date;
-        isActive: boolean;
-        deletedAt: Date | null;
-        description: string;
-        buildingId: string;
-        updatedAt: Date;
-        status: import("@prisma/client").$Enums.IncidentStatus;
-        latitude: number | null;
-        longitude: number | null;
-        type: string | null;
         incidentNumber: string;
+        type: string | null;
+        description: string;
         category: string;
         severity: string;
         immediateActions: string | null;
@@ -161,11 +153,21 @@ export declare class CasesController {
         impact: string | null;
         location: string | null;
         peopleImpacted: number | null;
-        reportedById: string;
+        status: import("@prisma/client").$Enums.IncidentStatus;
+        latitude: number | null;
+        longitude: number | null;
         occurredAt: Date;
+        incidentPlan: string | null;
+        createdAt: Date;
+        updatedAt: Date;
         isEscalated: boolean;
         escalatedAt: Date | null;
         escalationReason: string | null;
+        isActive: boolean;
+        deletedAt: Date | null;
+        buildingId: string;
+        departmentId: string | null;
+        reportedById: string;
     }>;
     assign(req: Request, id: string, body: {
         assignedToId: string;
@@ -174,18 +176,9 @@ export declare class CasesController {
         status: string;
     }): Promise<{
         id: string;
-        departmentId: string | null;
-        createdAt: Date;
-        isActive: boolean;
-        deletedAt: Date | null;
-        description: string;
-        buildingId: string;
-        updatedAt: Date;
-        status: import("@prisma/client").$Enums.IncidentStatus;
-        latitude: number | null;
-        longitude: number | null;
-        type: string | null;
         incidentNumber: string;
+        type: string | null;
+        description: string;
         category: string;
         severity: string;
         immediateActions: string | null;
@@ -193,11 +186,21 @@ export declare class CasesController {
         impact: string | null;
         location: string | null;
         peopleImpacted: number | null;
-        reportedById: string;
+        status: import("@prisma/client").$Enums.IncidentStatus;
+        latitude: number | null;
+        longitude: number | null;
         occurredAt: Date;
+        incidentPlan: string | null;
+        createdAt: Date;
+        updatedAt: Date;
         isEscalated: boolean;
         escalatedAt: Date | null;
         escalationReason: string | null;
+        isActive: boolean;
+        deletedAt: Date | null;
+        buildingId: string;
+        departmentId: string | null;
+        reportedById: string;
     }>;
     escalate(req: Request, id: string, body: {
         assignedToId: string;
@@ -206,21 +209,61 @@ export declare class CasesController {
     uploadEvidence(req: Request, id: string, body: any): Promise<{
         fileUrl: string;
         id: string;
-        incidentId: string;
         fileType: string;
         uploaderRole: string | null;
         uploadedAt: Date;
         uploadedById: string | null;
+        incidentId: string;
     }>;
     listEvidence(id: string): Promise<{
         fileUrl: string;
         id: string;
-        incidentId: string;
         fileType: string;
         uploaderRole: string | null;
         uploadedAt: Date;
         uploadedById: string | null;
+        incidentId: string;
     }[]>;
+    addCorrectiveAction(id: string, body: {
+        actionText: string;
+    }): Promise<{
+        id: string;
+        status: string;
+        createdAt: Date;
+        updatedAt: Date;
+        incidentId: string;
+        actionText: string;
+        dueDate: Date | null;
+        completedAt: Date | null;
+        notes: string | null;
+    }>;
+    patchCorrectiveAction(id: string, actionId: string, body: any): Promise<{
+        id: string;
+        status: string;
+        createdAt: Date;
+        updatedAt: Date;
+        incidentId: string;
+        actionText: string;
+        dueDate: Date | null;
+        completedAt: Date | null;
+        notes: string | null;
+    }>;
+    addApproval(req: Request, id: string, body: any): Promise<any>;
+    putApproval(id: string, approvalId: string, body: any): Promise<any>;
+    postApprovalAttachment(id: string, approvalId: string, body: any): Promise<{
+        fileUrl: string;
+        id: string;
+        createdAt: Date;
+        fileType: string | null;
+        fileName: string | null;
+        approvalId: string;
+    }>;
+    deleteApprovalAttachment(id: string, approvalId: string, attachmentId: string): Promise<{
+        ok: boolean;
+    }>;
+    deleteApproval(id: string, approvalId: string): Promise<{
+        ok: boolean;
+    }>;
     createEscalationConfig(id: string, body: any): Promise<{}>;
     getEscalationConfig(id: string): Promise<{}>;
     updateEscalationConfig(id: string, body: any): Promise<{}>;
@@ -248,32 +291,22 @@ export declare class CasesController {
     }[]>;
     getActivityTimeline(id: string): Promise<{
         id: string;
+        category: string;
         type: string;
-        oldStatus: import("@prisma/client").$Enums.IncidentStatus | null;
-        newStatus: import("@prisma/client").$Enums.IncidentStatus;
         description: string;
         user: {
             id: string;
             name: string;
-            email: string;
-        };
-        timestamp: Date;
+            email?: string;
+        } | undefined;
+        timestamp: string;
     }[]>;
     addActivity(req: Request, id: string, body: any): Promise<void>;
     close(req: Request, id: string): Promise<{
         id: string;
-        departmentId: string | null;
-        createdAt: Date;
-        isActive: boolean;
-        deletedAt: Date | null;
-        description: string;
-        buildingId: string;
-        updatedAt: Date;
-        status: import("@prisma/client").$Enums.IncidentStatus;
-        latitude: number | null;
-        longitude: number | null;
-        type: string | null;
         incidentNumber: string;
+        type: string | null;
+        description: string;
         category: string;
         severity: string;
         immediateActions: string | null;
@@ -281,26 +314,27 @@ export declare class CasesController {
         impact: string | null;
         location: string | null;
         peopleImpacted: number | null;
-        reportedById: string;
+        status: import("@prisma/client").$Enums.IncidentStatus;
+        latitude: number | null;
+        longitude: number | null;
         occurredAt: Date;
+        incidentPlan: string | null;
+        createdAt: Date;
+        updatedAt: Date;
         isEscalated: boolean;
         escalatedAt: Date | null;
         escalationReason: string | null;
+        isActive: boolean;
+        deletedAt: Date | null;
+        buildingId: string;
+        departmentId: string | null;
+        reportedById: string;
     }>;
     delete(id: string): Promise<{
         id: string;
-        departmentId: string | null;
-        createdAt: Date;
-        isActive: boolean;
-        deletedAt: Date | null;
-        description: string;
-        buildingId: string;
-        updatedAt: Date;
-        status: import("@prisma/client").$Enums.IncidentStatus;
-        latitude: number | null;
-        longitude: number | null;
-        type: string | null;
         incidentNumber: string;
+        type: string | null;
+        description: string;
         category: string;
         severity: string;
         immediateActions: string | null;
@@ -308,10 +342,20 @@ export declare class CasesController {
         impact: string | null;
         location: string | null;
         peopleImpacted: number | null;
-        reportedById: string;
+        status: import("@prisma/client").$Enums.IncidentStatus;
+        latitude: number | null;
+        longitude: number | null;
         occurredAt: Date;
+        incidentPlan: string | null;
+        createdAt: Date;
+        updatedAt: Date;
         isEscalated: boolean;
         escalatedAt: Date | null;
         escalationReason: string | null;
+        isActive: boolean;
+        deletedAt: Date | null;
+        buildingId: string;
+        departmentId: string | null;
+        reportedById: string;
     }>;
 }

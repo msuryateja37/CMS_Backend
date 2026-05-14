@@ -26,6 +26,7 @@ export declare class SecurityService {
         peopleImpacted: number | null;
         reportedById: string;
         occurredAt: Date;
+        incidentPlan: string | null;
         isEscalated: boolean;
         escalatedAt: Date | null;
         escalationReason: string | null;
@@ -58,6 +59,7 @@ export declare class SecurityService {
         peopleImpacted: number | null;
         reportedById: string;
         occurredAt: Date;
+        incidentPlan: string | null;
         isEscalated: boolean;
         escalatedAt: Date | null;
         escalationReason: string | null;
