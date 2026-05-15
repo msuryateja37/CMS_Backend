@@ -1,10 +1,7 @@
 /**
  * seed-forms.ts
- * Seeds the three OHS forms using the two-layer versioning model:
+ * Seeds the OHS forms using the two-layer versioning model:
  *   Form → FormVersion (published) → FormSection → QuestionInput → QuestionOption
- *
- * All inputTypes use the new InputType enum values (uppercase).
- * Each form gets versionNumber=1 which is published and set as active.
  */
 
 import { PrismaClient, InputType, FormVersionStatus } from '@prisma/client';
@@ -190,7 +187,7 @@ const forms: FormSeed[] = [
     ],
   },
 
-  // ── 2. OHS Audit Checklist ────────────────────────────────────────────────
+  // ── 2. OHS Compliance Audit Checklist ─────────────────────────────────────
   {
     slug: 'ohs-audit-checklist',
     title: 'OHS COMPLIANCE AUDIT CHECKLIST',
@@ -320,7 +317,164 @@ const forms: FormSeed[] = [
     ],
   },
 
-  // ── 3. Pre-Occupation Building Assessment ─────────────────────────────────
+  // ── 3. OHS Inspection Checklist ───────────────────────────────────────────
+  {
+    slug: 'ohs-inspection-checklist',
+    title: 'OHS INSPECTION CHECKLIST',
+    description: 'Detailed workplace safety inspection checklist.',
+    sections: [
+      {
+        title: 'Header Information',
+        questions: [
+          textQ('NAME OF THE BUILDING', 'Enter building name'),
+          dateQ('DATE OF INSPECTION'),
+        ],
+      },
+      {
+        title: '1. OHSA ORGANISATIONAL MANAGEMENT',
+        questions: [
+          radioQ('1.1 Is there a copy of the OHS Act prominently displayed in a visible area? Section 7'),
+          radioQ('1.2 Is there an approved OHS Policy? Section 7'),
+          radioQ('1.3 Is there an OHS Policy Statement displayed in a visible area? Section 7'),
+          radioQ('1.4 Are there statutory appointments available and signed by the 16.1? Section 16'),
+          radioQ('Section 16.2'),
+          radioQ('Section 17.1 (health and safety representatives)'),
+          radioQ('Section 19.1 (health and safety committee)'),
+          radioQ('GAR 9(2) (General Administration Regulation)'),
+          radioQ('Evacuation Marshal'),
+          radioQ('GSR3.4 First Aider'),
+          radioQ('GSR4 Fire Fighter'),
+          radioQ('1.5 Did the statutory appointees attended any Liability Training Course? Section 8'),
+          radioQ('1.6 Did the appointed OHS members subjected to a formal training on OHS, Basic fire-fighting, evacuation procedures and first aid? Section 8'),
+          radioQ('1.7 Are there any terms of reference (ToR) for OHS Committee?'),
+          radioQ('1.8 Are all symbolic signs displayed on site?'),
+        ],
+      },
+      {
+        title: '2. GENERAL SAFETY REGULATIONS',
+        questions: [
+          radioQ('2.1 Is there storage of flammable liquids if used on site? GSR'),
+          radioQ('2.2 Is there work in confine spaces? GSR'),
+          radioQ('2.3 Is there work at elevated platforms? GSR'),
+          radioQ('2.4 Is there PPE procedure? GSR'),
+          radioQ('2.5 Is there a register to control the issuing of PPE? GSR'),
+          radioQ('2.6 Is there an SOP on good stacking and storage practices? GSR'),
+          radioQ('2.7 Is the work-station design as per Building Regulation? GSR'),
+          radioQ('2.8 Is there a provision of first box (es) at the workplace and accessible when a need arises? GSR'),
+          radioQ('2.9 Is there a notice or sign in a conspicuous area at the workplace indicating the location of a first aid box(es)? GSR'),
+          radioQ('2.10 Is the first aid box(es) filled with the minimum contents as required by the GSR for office environment? GSR'),
+          radioQ('2.11 Are there any procedures developed to assist in a case of injury on duty? GSR'),
+          radioQ('2.12 Is the workplace provided with a ramp (to cater for people with disabilities) that is constructed in accordance with acceptable standards?'),
+        ],
+      },
+      {
+        title: '3. GENERAL ADMINISTRATION REGULATIONS',
+        questions: [
+          radioQ('3.1 Are all incidents recorded and reported using WCL2 or Annexure 2? (Near-miss, Injuries, Medical, Fatalities)'),
+          radioQ('3.2 Is there an incident register for any incident that may occur in the workplace? GSR'),
+          radioQ('3.3 investigations done by the competent person? GSR'),
+        ],
+      },
+      {
+        title: '4. REGULATION for HAZARDOUS BIOLOGICAL AGENTS',
+        questions: [
+          radioQ('4.1 Are there HBA being processed on site?'),
+          radioQ('4.2 Is there a provision of personal protective equipment to officials exposed to HBA?'),
+          radioQ('4.3 Is training provided to people who might be exposed to HBA?'),
+          radioQ('4.4 Is there a risk assessment conducted?'),
+          radioQ('4.5 Is there a Departmental Medical Surveillance Policy? (Included in OHS Policy)'),
+          radioQ('4.6 Are officials working in an environment where they might be exposed to HBA subjected to pre-employment, periodic and post medical surveillance?'),
+        ],
+      },
+      {
+        title: '5. ENVIRONMENTAL REGULATIONS FOR WORKPLACES',
+        questions: [
+          radioQ('5.1 Is the workplace illuminated (lighting) in accordance with the illuminance value? ERW'),
+          radioQ('5.2 Are there precautionary measures in place for means of egress? ERW'),
+          radioQ('5.3 Is the emergency escape door opening outward? ERW'),
+          radioQ('5.4 Are staircases provided with a safe handrail? ERW'),
+          radioQ('5.5 Is the workplace well ventilated either by natural or mechanical means? ERW'),
+          radioQ('5.6 Is the indoor workplace (floors, stairs, passages and gangways) kept clean and state of repairs, skid-free and free from any obstruction? ERW'),
+          radioQ('5.7 Is there an Emergency / Evacuation plan in the workplace? ERW'),
+          radioQ('5.8 Is there an Emergency Preparedness Team appointed in your department? (Fire fighters, First Aiders, Evacuation Marshall, Communication leader)'),
+          radioQ('5.9 Is there emergency evacuation preparedness drill conducted (once or twice a year)?'),
+          radioQ('5.10 Is housekeeping maintained in accordance with the Regulation? ERW'),
+          radioQ('5.11 Is there a waste management plan?'),
+        ],
+      },
+      {
+        title: '6. REGULATIONS FOR HAZARDOUS CHEMICAL SUBSTANCES',
+        questions: [
+          radioQ('6.1 Is there a procedure on chemical handling and transportation? Chemicals should be SABS approved.'),
+          radioQ('6.2 Is there storage for hazardous chemicals substances?'),
+          radioQ('6.3 Is the Material safety Data Sheet (MSDS) displayed for all hazardous chemicals substances?'),
+        ],
+      },
+      {
+        title: '7. ELETRICAL INSTALLATION REGULATIONS',
+        questions: [
+          radioQ('7.1 Is there a valid Certificate of Compliance on site for the building?'),
+          radioQ('7.2 Is all Electrical Equipment inspected and maintained by a competent person?'),
+          radioQ('7.3 Is labelling done according to the regulations?'),
+          radioQ('7.4 Are all electrical wires insulated and proper plugs used in your workplace?'),
+        ],
+      },
+      {
+        title: '8. PRESSURE EQUIPMENT REGULATIONS',
+        questions: [
+          radioQ('8.1 Is there a provision of fire extinguishers, fire hose reels onsite?'),
+          radioQ('8.2 Are these equipment serviced/ maintained/tested in accordance with the Regulations?'),
+        ],
+      },
+      {
+        title: '9. ELECTRICAL INSTALLATION REGULATIONS (Cont.)',
+        questions: [
+          radioQ('9.1 Is there an Approved Inspection Authority (AIA) to inspect, test or investigate for any installed electricity?'),
+          radioQ('9.2 Is there a valid Certificate of Compliance for the installation of electricity?'),
+          radioQ('9.3 Are there any fire safety precautionary measures for any electrical installations?'),
+        ],
+      },
+      {
+        title: '10. LIFT, ESCALATOR AND PASSANGER CONVEYOR REGULATIONS',
+        questions: [
+          radioQ('10.1 Is the lift/escalator inspected and tested in accordance with the relevant health & safety standards? LEPCR'),
+          radioQ('10.2 Is maintenance done as per the Regulation? LEPCR'),
+          radioQ('10.3 Are records of any maintenance/tests available on site? LEPCR'),
+        ],
+      },
+      {
+        title: '11. FACILITIES REGULATIONS',
+        questions: [
+          radioQ('11.1 Sanitation: Is there a provision of ablution facilities with a conspicuous sign outside the entrance? FR'),
+          radioQ('11.2 Is there a provision of an ablution facility for cater for persons with disabilities? FR'),
+          radioQ('11.3 Are these facilities regularly cleaned? FR'),
+          radioQ('11.4 Are hand drying facilities always available e.g. paper towels? FR'),
+          radioQ('11.5 Is there running water? FR'),
+          radioQ('11.6 Is there provision of soap? FR'),
+          radioQ('11.7 Is there a waste and sanitary bins available? FR'),
+          radioQ('11.8 Is there a designated smoking area that is well ventilated? FR'),
+          radioQ('11.9 Is there provision of an ergonomically sound seat for every employee? FR'),
+          radioQ('11.10 Is there an occupancy certificate for the building? FR'),
+          radioQ('11.11 Is the premises accessible for persons with disabilities?'),
+          radioQ('11.12 Is there a demarcated parking for people with disabilities?'),
+          radioQ('11.13 Are evacuation chairs provided for in case of an emergency?'),
+        ],
+      },
+      {
+        title: 'Signatures',
+        questions: [
+          { label: 'OHS OFFICIAL NAME', inputType: InputType.TEXT, placeholder: 'Enter name' },
+          { label: 'OHS OFFICIAL DESIGNATION', inputType: InputType.TEXT, placeholder: 'Enter designation' },
+          { label: 'OHS OFFICIAL DATE', inputType: InputType.DATE },
+          { label: '16.2 APPOINTEE NAME', inputType: InputType.TEXT, placeholder: 'Enter name' },
+          { label: '16.2 APPOINTEE DESIGNATION', inputType: InputType.TEXT, placeholder: 'Enter designation' },
+          { label: '16.2 APPOINTEE DATE', inputType: InputType.DATE },
+        ],
+      },
+    ],
+  },
+
+  // ── 4. Pre-Occupation Building Assessment ─────────────────────────────────
   {
     slug: 'pre-occupation-building-assessment',
     title: 'PRE-OCCUPATION BUILDING ASSESSMENT CHECKLIST',
