@@ -10,7 +10,7 @@ import {
   DefaultValuePipe,
 } from '@nestjs/common';
 import { FormsService } from './forms.service';
-import type { CreateFormDto, CreateFormVersionDto, SubmitResponseDto } from './dto/create-form.dto';
+import { CreateFormDto, CreateFormVersionDto, SubmitResponseDto } from './dto/create-form.dto';
 
 @Controller('forms')
 export class FormsController {
