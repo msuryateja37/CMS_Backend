@@ -183,11 +183,22 @@ export class CasesService {
     if (query.isEscalated === 'true') where.isEscalated = true;
 
     if (query.assignedToId) {
-      where.assignments = {
-        some: {
-          assignedToId: query.assignedToId,
+      where.OR = [
+        {
+          assignments: {
+            some: {
+              assignedToId: query.assignedToId,
+            },
+          },
         },
-      };
+        {
+          investigations: {
+            some: {
+              practitionerId: query.assignedToId,
+            },
+          },
+        },
+      ];
     }
 
     const take = query.take ? Number(query.take) : 50;

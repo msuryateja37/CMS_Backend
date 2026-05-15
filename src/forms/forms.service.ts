@@ -136,7 +136,12 @@ export class FormsService {
       where: { formId, isActive: true, status: FormVersionStatus.PUBLISHED },
     });
     if (!version) throw new NotFoundException('No published active version for this form');
-    return version.schema; // frozen JSONB — single row, no joins
+    
+    // Return formId along with the frozen schema
+    return {
+      formId: version.formId,
+      ...(version.schema as any),
+    };
   }
 
   // ── Get the rendered schema by slug (hot path for slug-based embed) ───────
@@ -403,6 +408,7 @@ export class FormsService {
             questionId: a.questionId,
             answerText: a.answerText,
             selectedOptionId: a.selectedOptionId,
+            comment: a.comment,
           })),
         },
       },
@@ -474,5 +480,25 @@ export class FormsService {
     });
     if (!version) throw new NotFoundException(`No published form matching "${keyword}"`);
     return version;
+  }
+  async getUserResponses(userId: string) {
+    return this.prisma.formResponse.findMany({
+      where: { submittedBy: userId },
+      orderBy: { submittedAt: 'desc' },
+      include: {
+        form: {
+          select: { id: true, slug: true }
+        },
+        formVersion: {
+          select: { id: true, title: true }
+        },
+        answers: {
+          include: {
+            question: { select: { id: true, label: true } },
+            selectedOption: { select: { id: true, optionLabel: true } }
+          }
+        }
+      }
+    });
   }
 }

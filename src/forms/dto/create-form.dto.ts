@@ -113,6 +113,10 @@ export class SubmitAnswerDto {
   @IsOptional()
   @IsString()
   selectedOptionId?: string;
+
+  @IsOptional()
+  @IsString()
+  comment?: string;
 }
 
 export class SubmitResponseDto {

@@ -98,6 +98,12 @@ export class FormsController {
     return this.formsService.getResponses(formId, page, limit);
   }
 
+  @Get('responses/my')
+  getMyResponses(@Query('userId') userId: string) {
+    // Note: In a real app, we'd get this from req.user.id via a Guard
+    return this.formsService.getUserResponses(userId);
+  }
+
   /** Get a single response with schema context */
   @Get('responses/:responseId')
   getResponse(@Param('responseId') responseId: string) {

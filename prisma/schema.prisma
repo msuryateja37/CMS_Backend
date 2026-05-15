@@ -708,6 +708,7 @@ model QuestionResponse {
   questionId       String
   answerText       String?
   selectedOptionId String?
+  comment          String?
 
   response         FormResponse    @relation(fields: [responseId], references: [id], onDelete: Cascade)
   question         QuestionInput   @relation(fields: [questionId], references: [id])
