@@ -24,11 +24,7 @@ enum IncidentStatus {
   CLOSED
 }
 
-enum TaskStatus {
-  PENDING
-  IN_PROGRESS
-  COMPLETED
-}
+
 
 enum InvoiceStatus {
   PENDING
@@ -106,7 +102,7 @@ model User {
   lastLoginAt DateTime?
   deletedAt DateTime?
 
-  // Back-relations for Incident/Task/etc.
+  // Back-relations for Incident and related entities
   reportedIncidents    Incident[]           @relation("ReportedBy")
   assignedIncidents    IncidentAssignment[] @relation("AssignedTo")
   assignedByIncidents  IncidentAssignment[] @relation("AssignedBy")
@@ -114,9 +110,10 @@ model User {
   incidentStatusLogs   IncidentStatusLog[]
   uploadedMedia        IncidentMedia[]      @relation("MediaUploader")
   investigations       Investigation[]
-  tasksAssigned        Task[]
+  approvalsUploaded    Approval[]
   inspectionsConducted Inspection[]         @relation("Inspector")
   formResponses        FormResponse[]
+  formsCreated         Form[]               @relation("FormCreator")
 }
 
 model Role {
@@ -183,7 +180,9 @@ model Incident {
   longitude  Float?
   occurredAt DateTime
 
-  tasks           Task[]
+  correctiveActions CorrectiveAction[]
+  approvals         Approval[]
+  incidentPlan      String?
   investigations  Investigation[]
   invoices        Invoice[]
   slaTracking     IncidentSLATracking?
@@ -426,30 +425,46 @@ model Investigation {
 }
 
 //////////////////////////////////////////////////////
-// TASKS
+// CORRECTIVE ACTIONS & APPROVALS
 //////////////////////////////////////////////////////
 
-model Task {
+model CorrectiveAction {
   id           String      @id @default(uuid())
-  title        String
-  description  String?
-  status       TaskStatus  @default(PENDING)
+  actionText   String      @db.Text
+  status       String      @default("pending") // pending | in_progress | completed
   dueDate      DateTime?
-  incident     Incident    @relation(fields: [incidentId], references: [id])
+  completedAt  DateTime?
+  notes        String?     @db.Text
+  incident     Incident    @relation(fields: [incidentId], references: [id], onDelete: Cascade)
   incidentId   String
-  assignedTo   User        @relation(fields: [assignedToId], references: [id])
-  assignedToId String
-  proofs       TaskProof[]
-  invoices     Invoice[]
   createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
 }
 
-model TaskProof {
-  id        String   @id @default(uuid())
-  fileUrl   String
-  task      Task     @relation(fields: [taskId], references: [id])
-  taskId    String
-  createdAt DateTime @default(now())
+model Approval {
+  id                   String                 @id @default(uuid())
+  roleName             String
+  recommenderName      String?
+  recommendationText   String?                @db.Text
+  incident             Incident               @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  incidentId           String
+  uploadedBy           User?                  @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+  uploadedById         String?
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
+  attachments          ApprovalAttachment[]
+}
+
+model ApprovalAttachment {
+  id         String   @id @default(uuid())
+  fileUrl    String
+  fileName   String?
+  fileType   String?
+  approval   Approval @relation(fields: [approvalId], references: [id], onDelete: Cascade)
+  approvalId String
+  createdAt  DateTime @default(now())
+
+  @@index([approvalId])
 }
 
 //////////////////////////////////////////////////////
@@ -463,8 +478,7 @@ model Invoice {
   description String?
   status      InvoiceStatus @default(PENDING)
   receivedDate DateTime?    @default(now())
-  task        Task          @relation(fields: [taskId], references: [id])
-  taskId      String
+
   createdAt   DateTime      @default(now())
   incident    Incident?     @relation(fields: [incidentId], references: [id])
   incidentId  String?
@@ -550,77 +564,158 @@ model AuditLog {
 }
 
 //////////////////////////////////////////////////////
-// DYNAMIC FORMS
+// DYNAMIC FORMS  (two-layer versioning)
+// ─ Canvas layer: FormSection → QuestionInput → QuestionOption
+// ─ Snapshot layer: FormVersion.schema (frozen JSONB on publish)
 //////////////////////////////////////////////////////
 
-model Form {
-  id          String   @id @default(uuid())
-  title       String
-  description String?
-  version     String?
-  isActive    Boolean  @default(true)
-  createdBy   String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
-  sections    FormSection[]
-  responses   FormResponse[]
+// ── Enums ────────────────────────────────────────
+
+enum FormVersionStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
 }
+
+enum InputType {
+  TEXT
+  NUMBER
+  DATE
+  TEXTAREA
+  RADIO
+  CHECKBOX
+  SELECT
+}
+
+// ── Form ─────────────────────────────────────────
+// Stable identity anchor; never mutated after creation.
+
+model Form {
+  id        String   @id @default(uuid())
+  slug      String?  @unique
+  createdBy String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  creator   User?          @relation("FormCreator", fields: [createdBy], references: [id])
+  versions  FormVersion[]
+  responses FormResponse[]
+}
+
+// ── FormVersion ───────────────────────────────────
+// One row per draft or published version.
+// `schema` is null while DRAFT; serialised from canvas on publish, then frozen.
+
+model FormVersion {
+  id            String            @id @default(uuid())
+  formId        String
+  versionNumber Int               // monotonically increasing per form
+  title         String
+  description   String?
+  status        FormVersionStatus @default(DRAFT)
+  isActive      Boolean           @default(false)  // exactly ONE per form is true
+  schema        Json?             // null while DRAFT; frozen on publish
+  publishedAt   DateTime?
+  createdAt     DateTime          @default(now())
+
+  form          Form              @relation(fields: [formId], references: [id], onDelete: Cascade)
+  sections      FormSection[]
+  responses     FormResponse[]
+
+  @@unique([formId, versionNumber])
+  @@index([formId, isActive])
+  @@index([formId, status])
+}
+
+// ── FormSection ───────────────────────────────────
+// Canvas only. Never deleted after publish (FK integrity for QuestionInput).
 
 model FormSection {
-  id         String   @id @default(uuid())
-  formId     String
-  form       Form     @relation(fields: [formId], references: [id], onDelete: Cascade)
-  title      String
-  orderIndex Int
-  
-  questions  QuestionInput[]
+  id            String        @id @default(uuid())
+  formVersionId String
+  title         String
+  description   String?
+  orderIndex    Int
+
+  formVersion   FormVersion   @relation(fields: [formVersionId], references: [id], onDelete: Cascade)
+  questions     QuestionInput[]
+
+  @@index([formVersionId, orderIndex])
 }
 
+// ── QuestionInput ─────────────────────────────────
+// Canvas only. UUID bridges canvas ↔ snapshot ↔ analytics.
+
 model QuestionInput {
-  id              String   @id @default(uuid())
+  id              String            @id @default(uuid())
   sectionId       String
-  section         FormSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
   label           String
-  inputType       String   // text, number, date, textarea, radio, checkbox, select
+  inputType       InputType
   placeholder     String?
+  isRequired      Boolean           @default(false)
   orderIndex      Int
   validationRules Json?
 
+  section         FormSection       @relation(fields: [sectionId], references: [id], onDelete: Cascade)
   options         QuestionOption[]
   responses       QuestionResponse[]
+
+  @@index([sectionId, orderIndex])
 }
+
+// ── QuestionOption ────────────────────────────────
+// Canvas only. UUID embedded in schema JSON.
 
 model QuestionOption {
-  id            String   @id @default(uuid())
-  questionId    String
-  question      QuestionInput @relation(fields: [questionId], references: [id], onDelete: Cascade)
-  optionLabel   String
-  optionValue   String
-  orderIndex    Int
-  
-  responses     QuestionResponse[]
+  id          String            @id @default(uuid())
+  questionId  String
+  optionLabel String
+  optionValue String
+  orderIndex  Int
+
+  question    QuestionInput     @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  responses   QuestionResponse[]
+
+  @@index([questionId, orderIndex])
 }
+
+// ── FormResponse ──────────────────────────────────
+// Pinned to the active FormVersion at submit time.
 
 model FormResponse {
-  id            String   @id @default(uuid())
+  id            String      @id @default(uuid())
   formId        String
-  form          Form     @relation(fields: [formId], references: [id], onDelete: Cascade)
+  formVersionId String
   submittedBy   String?
-  submitter     User?    @relation(fields: [submittedBy], references: [id])
-  submittedAt   DateTime @default(now())
-  
+  submittedAt   DateTime    @default(now())
+
+  form          Form        @relation(fields: [formId], references: [id], onDelete: Cascade)
+  formVersion   FormVersion @relation(fields: [formVersionId], references: [id])
+  submitter     User?       @relation(fields: [submittedBy], references: [id])
   answers       QuestionResponse[]
+
+  @@index([formId, submittedAt])
+  @@index([formVersionId])
+  @@index([submittedBy, submittedAt])
 }
 
+// ── QuestionResponse ──────────────────────────────
+// One row per answered question per submission.
+
 model QuestionResponse {
-  id               String   @id @default(uuid())
+  id               String          @id @default(uuid())
   responseId       String
-  response         FormResponse @relation(fields: [responseId], references: [id], onDelete: Cascade)
   questionId       String
-  question         QuestionInput @relation(fields: [questionId], references: [id], onDelete: Cascade)
   answerText       String?
   selectedOptionId String?
+  comment          String?
+
+  response         FormResponse    @relation(fields: [responseId], references: [id], onDelete: Cascade)
+  question         QuestionInput   @relation(fields: [questionId], references: [id])
   selectedOption   QuestionOption? @relation(fields: [selectedOptionId], references: [id], onDelete: SetNull)
+
+  @@index([responseId])
+  @@index([questionId])
+  @@index([questionId, selectedOptionId])
 }
 

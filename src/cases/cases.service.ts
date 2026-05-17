@@ -183,11 +183,22 @@ export class CasesService {
     if (query.isEscalated === 'true') where.isEscalated = true;
 
     if (query.assignedToId) {
-      where.assignments = {
-        some: {
-          assignedToId: query.assignedToId,
+      where.OR = [
+        {
+          assignments: {
+            some: {
+              assignedToId: query.assignedToId,
+            },
+          },
         },
-      };
+        {
+          investigations: {
+            some: {
+              practitionerId: query.assignedToId,
+            },
+          },
+        },
+      ];
     }
 
     const take = query.take ? Number(query.take) : 50;
@@ -250,6 +261,10 @@ export class CasesService {
           include: { assignedTo: true },
           orderBy: { assignedAt: 'desc' },
           take: 1,
+        },
+        correctiveActions: true,
+        approvals: {
+          include: { uploadedBy: true, attachments: true },
         },
         comments: {
           include: {
@@ -315,12 +330,18 @@ export class CasesService {
   }
 
   async update(id: string, body: any, userId?: string) {
+    const previous = await this.prisma.incident.findUnique({
+      where: { id },
+      select: { incidentPlan: true },
+    });
+
     const updateData: any = {};
     if (body.severity) updateData.severity = body.severity;
     if (body.status) updateData.status = body.status;
     if (body.description) updateData.description = body.description;
     if (body.buildingId) updateData.buildingId = body.buildingId;
     if (body.departmentId) updateData.departmentId = body.departmentId;
+    if (body.incidentPlan !== undefined) updateData.incidentPlan = body.incidentPlan;
 
     const incident = await this.prisma.incident.update({
       where: { id },
@@ -332,6 +353,18 @@ export class CasesService {
     });
 
     if (userId) {
+      if (body.incidentPlan !== undefined) {
+        const before = previous?.incidentPlan ?? '';
+        const after = (body.incidentPlan as string) ?? '';
+        if (before !== after) {
+          const msg = !after.trim()
+            ? 'Incident plan cleared'
+            : !before.trim()
+              ? 'Incident plan added'
+              : 'Incident plan updated';
+          await this.appendIncidentTimeline(id, userId, 'PLAN', msg);
+        }
+      }
       if (body.status) {
         await this.addActivity(
           id,
@@ -472,6 +505,183 @@ export class CasesService {
     }));
   }
 
+  async addCorrectiveAction(incidentId: string, actionText: string) {
+    return this.prisma.correctiveAction.create({
+      data: {
+        incidentId,
+        actionText,
+      },
+    });
+  }
+
+  async updateCorrectiveAction(
+    incidentId: string,
+    actionId: string,
+    body: {
+      actionText?: string;
+      status?: string;
+      dueDate?: string | null;
+      notes?: string | null;
+      completedAt?: string | null;
+    },
+  ) {
+    await this.assertCorrectiveActionOnIncident(incidentId, actionId);
+    const data: Record<string, unknown> = {};
+    if (body.actionText !== undefined) data.actionText = body.actionText;
+    if (body.status !== undefined) {
+      data.status = body.status;
+      if (body.status === 'completed' && body.completedAt === undefined) {
+        data.completedAt = new Date();
+      }
+    }
+    if (body.dueDate !== undefined) {
+      data.dueDate = body.dueDate ? new Date(body.dueDate as string) : null;
+    }
+    if (body.notes !== undefined) data.notes = body.notes;
+    if (body.completedAt !== undefined) {
+      data.completedAt = body.completedAt
+        ? new Date(body.completedAt as string)
+        : null;
+    }
+    return this.prisma.correctiveAction.update({
+      where: { id: actionId },
+      data,
+    });
+  }
+
+  private signApprovalRecord(a: any) {
+    if (!a) return a;
+    return {
+      ...a,
+      attachments: (a.attachments ?? []).map((att: any) => ({
+        ...att,
+        fileUrl: this.storage.getAuthenticatedUrl(att.fileUrl),
+      })),
+    };
+  }
+
+  private async assertCorrectiveActionOnIncident(
+    incidentId: string,
+    actionId: string,
+  ) {
+    const row = await this.prisma.correctiveAction.findFirst({
+      where: { id: actionId, incidentId },
+    });
+    if (!row) throw new NotFoundException('Corrective action not found');
+  }
+
+  private async assertApprovalOnIncident(incidentId: string, approvalId: string) {
+    const row = await this.prisma.approval.findFirst({
+      where: { id: approvalId, incidentId },
+    });
+    if (!row) throw new NotFoundException('Approval not found');
+  }
+
+  async addApproval(incidentId: string, body: any, uploadedById: string) {
+    const files =
+      body.files ??
+      (body.fileUrl || body.url
+        ? [
+            {
+              fileUrl: body.fileUrl ?? body.url,
+              fileName: body.fileName,
+              fileType: body.fileType,
+            },
+          ]
+        : []);
+    if (!body.roleName)
+      throw new BadRequestException('roleName is required');
+    if (!Array.isArray(files) || files.length === 0) {
+      throw new BadRequestException(
+        'At least one file is required (upload files first, then submit)',
+      );
+    }
+
+    const approval = await this.prisma.approval.create({
+      data: {
+        incidentId,
+        roleName: body.roleName,
+        recommenderName: body.recommenderName ?? null,
+        recommendationText: body.recommendationText ?? null,
+        uploadedById,
+        attachments: {
+          create: files.map((f: any) => ({
+            fileUrl: f.fileUrl ?? f.url,
+            fileName: f.fileName ?? null,
+            fileType: f.fileType ?? null,
+          })),
+        },
+      },
+      include: { attachments: true, uploadedBy: true },
+    });
+    return this.signApprovalRecord(approval);
+  }
+
+  async updateApproval(incidentId: string, approvalId: string, body: any) {
+    await this.assertApprovalOnIncident(incidentId, approvalId);
+    const data: Record<string, unknown> = {};
+    if (body.recommenderName !== undefined)
+      data.recommenderName = body.recommenderName;
+    if (body.recommendationText !== undefined)
+      data.recommendationText = body.recommendationText;
+    if (Object.keys(data).length === 0) {
+      const existing = await this.prisma.approval.findFirst({
+        where: { id: approvalId, incidentId },
+        include: { attachments: true, uploadedBy: true },
+      });
+      if (!existing) throw new NotFoundException('Approval not found');
+      return this.signApprovalRecord(existing);
+    }
+    const approval = await this.prisma.approval.update({
+      where: { id: approvalId },
+      data,
+      include: { attachments: true, uploadedBy: true },
+    });
+    return this.signApprovalRecord(approval);
+  }
+
+  async addApprovalAttachment(
+    incidentId: string,
+    approvalId: string,
+    body: any,
+  ) {
+    await this.assertApprovalOnIncident(incidentId, approvalId);
+    const rawUrl = body.fileUrl ?? body.url;
+    if (!rawUrl) throw new BadRequestException('fileUrl is required');
+    const att = await this.prisma.approvalAttachment.create({
+      data: {
+        approvalId,
+        fileUrl: rawUrl,
+        fileName: body.fileName ?? null,
+        fileType: body.fileType ?? null,
+      },
+    });
+    return {
+      ...att,
+      fileUrl: this.storage.getAuthenticatedUrl(att.fileUrl),
+    };
+  }
+
+  async deleteApprovalAttachment(
+    incidentId: string,
+    approvalId: string,
+    attachmentId: string,
+  ) {
+    await this.assertApprovalOnIncident(incidentId, approvalId);
+    const att = await this.prisma.approvalAttachment.findFirst({
+      where: { id: attachmentId, approvalId },
+    });
+    if (!att) throw new NotFoundException('Attachment not found');
+    await this.prisma.approvalAttachment.delete({ where: { id: attachmentId } });
+    return { ok: true };
+  }
+
+  async deleteApproval(incidentId: string, approvalId: string) {
+    await this.assertApprovalOnIncident(incidentId, approvalId);
+    await this.prisma.approval.delete({ where: { id: approvalId } });
+    return { ok: true };
+  }
+
   async close(id: string, userId: string) {
     await this.addActivity(id, 'CLOSED', 'Closed by user ' + userId, userId);
 
@@ -579,12 +789,17 @@ export class CasesService {
         }))
       : [];
 
+    const approvals = incident.approvals
+      ? incident.approvals.map((a: any) => this.signApprovalRecord(a))
+      : [];
+
     return {
       ...incident,
       media,
       evidence: media,
       assignedTo,
       comments,
+      approvals,
     };
   }
 
@@ -631,8 +846,47 @@ export class CasesService {
     }));
   }
 
+  /**
+   * Structured timeline entry stored in IncidentStatusLog.comments as JSON
+   * while oldStatus/newStatus mirror the current case status (no workflow change).
+   */
+  private async appendIncidentTimeline(
+    incidentId: string,
+    userId: string,
+    kind: string,
+    message: string,
+  ) {
+    const incident = await this.prisma.incident.findUnique({
+      where: { id: incidentId },
+      select: { status: true },
+    });
+    if (!incident) return;
+    await this.prisma.incidentStatusLog.create({
+      data: {
+        incidentId,
+        oldStatus: incident.status,
+        newStatus: incident.status,
+        comments: JSON.stringify({ tl: kind, m: message }),
+        userId,
+      },
+    });
+  }
+
+  private parseTimelinePayload(
+    comments: string | null | undefined,
+  ): { tl: string; m: string } | null {
+    const c = comments?.trim();
+    if (!c?.startsWith('{')) return null;
+    try {
+      const o = JSON.parse(c) as { tl?: string; m?: string };
+      if (o?.tl && typeof o.m === 'string') return { tl: o.tl, m: o.m };
+    } catch {
+      /* ignore */
+    }
+    return null;
+  }
+
   async getActivityTimeline(idOrNumber: string) {
-    // Resolve incident ID from incidentNumber if needed
     const isUuid =
       /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
         idOrNumber,
@@ -648,24 +902,178 @@ export class CasesService {
       incidentId = incident.id;
     }
 
-    const logs = await this.prisma.incidentStatusLog.findMany({
-      where: { incidentId },
-      include: {
-        changedBy: {
-          select: { id: true, name: true, email: true },
+    const [
+      logs,
+      comments,
+      correctiveActions,
+      approvals,
+      mediaRows,
+    ] = await Promise.all([
+      this.prisma.incidentStatusLog.findMany({
+        where: { incidentId },
+        include: {
+          changedBy: {
+            select: { id: true, name: true, email: true },
+          },
         },
-      },
-      orderBy: { changedAt: 'asc' },
-    });
+        orderBy: { changedAt: 'asc' },
+      }),
+      this.prisma.incidentComment.findMany({
+        where: { incidentId },
+        include: {
+          commentedBy: { select: { id: true, name: true, email: true } },
+        },
+        orderBy: { createdAt: 'asc' },
+      }),
+      this.prisma.correctiveAction.findMany({
+        where: { incidentId },
+        orderBy: { createdAt: 'asc' },
+      }),
+      this.prisma.approval.findMany({
+        where: { incidentId },
+        include: {
+          uploadedBy: { select: { id: true, name: true, email: true } },
+          attachments: { orderBy: { createdAt: 'asc' } },
+        },
+        orderBy: { createdAt: 'asc' },
+      }),
+      this.prisma.incidentMedia.findMany({
+        where: { incidentId },
+        include: {
+          uploadedBy: { select: { id: true, name: true, email: true } },
+        },
+        orderBy: { uploadedAt: 'asc' },
+      }),
+    ]);
 
-    return logs.map((log) => ({
-      id: log.id,
-      type: log.newStatus as string,
-      oldStatus: log.oldStatus,
-      newStatus: log.newStatus,
-      description: log.comments ?? '',
-      user: log.changedBy,
-      timestamp: log.changedAt,
+    type Row = {
+      id: string;
+      category: string;
+      type: string;
+      description: string;
+      user?: { id: string; name: string; email?: string } | null;
+      timestamp: Date;
+    };
+
+    const rows: Row[] = [];
+
+    for (const log of logs) {
+      const payload = this.parseTimelinePayload(log.comments);
+      if (payload) {
+        rows.push({
+          id: `tl-${log.id}`,
+          category: payload.tl,
+          type: payload.tl,
+          description: payload.m,
+          user: log.changedBy,
+          timestamp: log.changedAt,
+        });
+        continue;
+      }
+      rows.push({
+        id: `st-${log.id}`,
+        category: 'STATUS',
+        type: log.newStatus as string,
+        description:
+          log.comments?.trim() ||
+          `Status set to ${String(log.newStatus).replace(/_/g, ' ')}`,
+        user: log.changedBy,
+        timestamp: log.changedAt,
+      });
+    }
+
+    for (const c of comments) {
+      rows.push({
+        id: `cm-${c.id}`,
+        category: 'COMMENT',
+        type: 'COMMENT',
+        description: c.comment,
+        user: c.commentedBy ?? { id: c.userId, name: 'Unknown' },
+        timestamp: c.createdAt,
+      });
+    }
+
+    for (const ca of correctiveActions) {
+      rows.push({
+        id: `ca-c-${ca.id}`,
+        category: 'CORRECTIVE_ACTION',
+        type: 'CORRECTIVE_CREATED',
+        description: ca.actionText,
+        user: null,
+        timestamp: ca.createdAt,
+      });
+      const createdMs = new Date(ca.createdAt).getTime();
+      const updatedMs = new Date(ca.updatedAt).getTime();
+      if (updatedMs - createdMs > 2000) {
+        rows.push({
+          id: `ca-u-${ca.id}`,
+          category: 'CORRECTIVE_ACTION',
+          type: 'CORRECTIVE_UPDATED',
+          description: `Corrective action updated (status: ${ca.status}${ca.dueDate ? `, due ${ca.dueDate.toISOString().slice(0, 10)}` : ''})`,
+          user: null,
+          timestamp: ca.updatedAt,
+        });
+      }
+    }
+
+    for (const ap of approvals) {
+      const who = ap.recommenderName?.trim() || 'Unnamed signatory';
+      const n = ap.attachments.length;
+      rows.push({
+        id: `ap-c-${ap.id}`,
+        category: 'APPROVAL',
+        type: 'APPROVAL_RECORD',
+        description: `${ap.roleName} — ${who} · ${n} file(s)`,
+        user: ap.uploadedBy,
+        timestamp: ap.createdAt,
+      });
+      const apCreated = new Date(ap.createdAt).getTime();
+      for (const att of ap.attachments) {
+        const attMs = new Date(att.createdAt).getTime();
+        if (attMs - apCreated > 2000) {
+          rows.push({
+            id: `ap-f-${att.id}`,
+            category: 'APPROVAL_FILE',
+            type: 'APPROVAL_FILE_ADDED',
+            description: `Additional file on ${ap.roleName}: ${att.fileName || 'Attachment'}`,
+            user: ap.uploadedBy,
+            timestamp: att.createdAt,
+          });
+        }
+      }
+      const apUp = new Date(ap.updatedAt).getTime();
+      if (apUp - apCreated > 2000) {
+        rows.push({
+          id: `ap-u-${ap.id}`,
+          category: 'APPROVAL',
+          type: 'APPROVAL_UPDATED',
+          description: `Approval / recommendation details updated (${ap.roleName})`,
+          user: ap.uploadedBy,
+          timestamp: ap.updatedAt,
+        });
+      }
+    }
+
+    for (const m of mediaRows) {
+      rows.push({
+        id: `ev-${m.id}`,
+        category: 'EVIDENCE',
+        type: 'EVIDENCE_UPLOAD',
+        description: `Evidence uploaded${m.uploaderRole ? ` (${m.uploaderRole})` : ''}: ${m.fileType || 'file'}`,
+        user: m.uploadedBy,
+        timestamp: m.uploadedAt,
+      });
+    }
+
+    rows.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+
+    return rows.map((r) => ({
+      id: r.id,
+      category: r.category,
+      type: r.type,
+      description: r.description,
+      user: r.user ?? undefined,
+      timestamp: r.timestamp.toISOString(),
     }));
   }
 

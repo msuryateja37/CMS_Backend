@@ -4,6 +4,7 @@ import {
   Delete,
   Get,
   Param,
+  Patch,
   Post,
   Put,
   Query,
@@ -171,8 +172,9 @@ export class CasesController {
     UserRole.OHS_PRACTITIONER,
   )
   @Put(':id')
-  async update(@Param('id') id: string, @Body() body: any) {
-    return this.cases.update(id, body);
+  async update(@Req() req: Request, @Param('id') id: string, @Body() body: any) {
+    const user = req.user as { sub: string };
+    return this.cases.update(id, body, user.sub);
   }
 
   // Assign Case (SUPERVISOR)
@@ -248,6 +250,88 @@ export class CasesController {
   @Get(':id/evidence')
   async listEvidence(@Param('id') id: string) {
     return this.cases.listEvidence(id);
+  }
+
+  // Corrective Actions
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Post(':id/corrective-actions')
+  async addCorrectiveAction(
+    @Param('id') id: string,
+    @Body() body: { actionText: string },
+  ) {
+    return this.cases.addCorrectiveAction(id, body.actionText);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Patch(':id/corrective-actions/:actionId')
+  async patchCorrectiveAction(
+    @Param('id') id: string,
+    @Param('actionId') actionId: string,
+    @Body() body: any,
+  ) {
+    return this.cases.updateCorrectiveAction(id, actionId, body);
+  }
+
+  // Approvals
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Post(':id/approvals')
+  async addApproval(
+    @Req() req: Request,
+    @Param('id') id: string,
+    @Body() body: any,
+  ) {
+    const user = req.user as { sub: string };
+    return this.cases.addApproval(id, body, user.sub);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Put(':id/approvals/:approvalId')
+  async putApproval(
+    @Param('id') id: string,
+    @Param('approvalId') approvalId: string,
+    @Body() body: any,
+  ) {
+    return this.cases.updateApproval(id, approvalId, body);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Post(':id/approvals/:approvalId/attachments')
+  async postApprovalAttachment(
+    @Param('id') id: string,
+    @Param('approvalId') approvalId: string,
+    @Body() body: any,
+  ) {
+    return this.cases.addApprovalAttachment(id, approvalId, body);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Delete(':id/approvals/:approvalId/attachments/:attachmentId')
+  async deleteApprovalAttachment(
+    @Param('id') id: string,
+    @Param('approvalId') approvalId: string,
+    @Param('attachmentId') attachmentId: string,
+  ) {
+    return this.cases.deleteApprovalAttachment(
+      id,
+      approvalId,
+      attachmentId,
+    );
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Delete(':id/approvals/:approvalId')
+  async deleteApproval(
+    @Param('id') id: string,
+    @Param('approvalId') approvalId: string,
+  ) {
+    return this.cases.deleteApproval(id, approvalId);
   }
 
   // Escalation Config - Create
