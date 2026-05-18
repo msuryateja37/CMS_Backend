@@ -9,7 +9,7 @@ async function bootstrap() {
   // Enable CORS for frontend requests
   //app.enableCors();
   app.enableCors({
-    origin: true, // This allows requests from the Vite development server
+    origin: true, 
     credentials: true,
   });
   app.useGlobalPipes(
