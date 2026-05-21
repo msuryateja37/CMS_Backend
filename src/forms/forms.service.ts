@@ -490,7 +490,7 @@ export class FormsService {
           select: { id: true, slug: true }
         },
         formVersion: {
-          select: { id: true, title: true }
+          select: { id: true, title: true, schema: true }
         },
         answers: {
           include: {
