@@ -139,6 +139,19 @@ export class AuthService {
     return { message: 'Logged out' };
   }
 
+  async extendSession(userId: string) {
+    const user = await this.getCurrentUser(userId);
+    const accessToken = await this.signAccessToken({
+      sub: user.id,
+      role: user.role?.name,
+    });
+    return {
+      accessToken,
+      refreshToken: 'feature_disabled_in_schema',
+      user,
+    };
+  }
+
   async updateProfile(
     userId: string,
     data: {

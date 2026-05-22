@@ -49,6 +49,15 @@ export class AuthController {
     return this.authService.logoutAll(user.sub);
   }
 
+  // 6) Extend session (Authenticated)
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Post('extend')
+  async extendSession(@Req() req: Request) {
+    const user = req.user as { sub: string };
+    return this.authService.extendSession(user.sub);
+  }
+
   // 5) Update own profile (Authenticated)
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
