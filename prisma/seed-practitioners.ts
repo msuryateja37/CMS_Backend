@@ -38,6 +38,7 @@ const provinces = [
     "Northern Cape",
     "North West",
     "Western Cape",
+    "National Office",
 ];
 
 // Province abbreviations for email addresses
@@ -51,6 +52,7 @@ const provinceAbbrev: Record<string, string> = {
     "Northern Cape": "nc",
     "North West": "nw",
     "Western Cape": "wc",
+    "National Office": "no",
 };
 
 async function main() {
@@ -75,7 +77,7 @@ async function main() {
     const ohsDept = await prisma.department.findUnique({ where: { name: "OHS" } });
     const secDept = await prisma.department.findUnique({ where: { name: "Security" } });
 
-    let empCounter = 5000; // Start from a high number to avoid conflicts
+    let empCounter = 6000; // Start from a high number to avoid conflicts
 
     const ohsPractitioners: Array<{ name: string; email: string; province: string }> = [];
     const secPractitioners: Array<{ name: string; email: string; province: string }> = [];
@@ -101,7 +103,6 @@ async function main() {
                 where: { email },
                 update: {
                     phone,
-                    employeeNumber: `EMP${empCounter}`,
                     provinceId: province.id,
                     departmentId: ohsDept?.id,
                 },
@@ -149,7 +150,6 @@ async function main() {
                 where: { email },
                 update: {
                     phone,
-                    employeeNumber: `EMP${empCounter}`,
                     provinceId: province.id,
                     departmentId: secDept?.id,
                 },
