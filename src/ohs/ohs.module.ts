@@ -7,3 +7,4 @@ import { OhsService } from './ohs.service';
   providers: [OhsService],
 })
 export class OhsModule {}
+

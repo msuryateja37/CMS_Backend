@@ -18,6 +18,7 @@ async function main() {
         "Northern Cape",
         "North West",
         "Western Cape",
+        "National Office",
     ];
 
     const provinces: Province[] = [];
@@ -314,12 +315,13 @@ async function main() {
                 const user = await prisma.user.upsert({
                     where: { email },
                     update: {
+                        name: `${dept.name} Staff ${i}`,
                         phone: phoneNumber,
                         employeeNumber: `EMP${employeeCounter}`,
                         lastLoginAt: hasLoggedIn ? lastLogin : null,
                     },
                     create: {
-                        name: `${dept.name} Staff ${i} - ${province.name}`,
+                        name: `${dept.name} Staff ${i}`,
                         email: email,
                         phone: phoneNumber,
                         employeeNumber: `EMP${employeeCounter}`,
