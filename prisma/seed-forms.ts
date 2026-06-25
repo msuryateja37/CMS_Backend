@@ -616,6 +616,118 @@ const forms: FormSeed[] = [
       },
     ],
   },
+
+  // ── 5. Hazard Identification Risk Assessment (HIRA) ───────────────────────
+  {
+    slug: 'ohs-hazard-report',
+    title: 'OHS HAZARD IDENTIFICATION RISK ASSESSMENT',
+    description: 'Identify workplace hazards, assess the associated risks and document control measures.',
+    sections: [
+      {
+        title: 'General Information',
+        questions: [
+          { ...textQ('Completed by', 'Enter name of the inspector'), isRequired: true },
+          { ...textQ('Team Members', 'Enter members'), isRequired: true },
+          { ...dateQ('Date Compiled'), isRequired: true },
+          { ...dateQ('Date of Review'), isRequired: true },
+        ],
+      },
+      {
+        title: 'Reference NO.',
+        questions: [textQ('Reference NO.', 'Enter reference number')],
+      },
+      {
+        title: 'Activity',
+        questions: [
+          {
+            label: 'List specific activities to be performed taking into consideration the equipment to be used, the personnel involved in the task',
+            inputType: InputType.TEXTAREA,
+            placeholder: 'Enter activities',
+          },
+        ],
+      },
+      {
+        title: 'Hazard',
+        questions: [
+          {
+            label: 'A hazard is anything that is likely to lead to an event that will have an adverse impact on achieving an objective. A hazard can pose more than one risk',
+            inputType: InputType.TEXTAREA,
+            placeholder: 'Enter hazard',
+          },
+        ],
+      },
+      {
+        title: 'Risk',
+        questions: [
+          {
+            label: 'A physical event that occurs or could occur in relation to the hazard',
+            inputType: InputType.TEXTAREA,
+            placeholder: 'Enter risk',
+          },
+        ],
+      },
+      {
+        title: 'Risk Type',
+        questions: [textQ('Risk Type (S/H/E/Q)', 'Enter risk type')],
+      },
+      {
+        title: 'Activity Type',
+        questions: [textQ('Activity Type (Abnormal, Normal or Emergency)', 'Enter activity type')],
+      },
+      {
+        title: 'Risk Owner',
+        questions: [
+          {
+            label: 'Who is accountable for making sure the controls and monitors are: in place, implemented, regularly reviewed for effectiveness',
+            inputType: InputType.TEXTAREA,
+            placeholder: 'Enter risk owner',
+          },
+        ],
+      },
+      {
+        title: 'Risk Rating',
+        questions: [
+          { label: 'Likelihood', inputType: InputType.TEXTAREA, placeholder: 'Enter likelihood' },
+          { label: 'Consequences', inputType: InputType.TEXTAREA, placeholder: 'Enter consequences' },
+          textQ('Risk Rating (L x C)', 'Enter risk rating'),
+        ],
+      },
+      {
+        title: 'Existing Controls',
+        questions: [
+          {
+            label: 'Include: Preventative Controls (controls implemented to eliminate hazards or reduce the likelihood of the risk occurring), and Reactive Controls (controls implemented to reduce the immediate impact of the risk occurring)',
+            inputType: InputType.TEXTAREA,
+            placeholder: 'Enter existing controls',
+          },
+        ],
+      },
+      {
+        title: 'Residual Risk Rating',
+        questions: [
+          textQ('Effectiveness of Control', 'Enter effectiveness of control'),
+          textQ('Residual risk = Risk Rating - Effectiveness of Control', 'Enter residual risk'),
+        ],
+      },
+      {
+        title: 'Recommended Additional Control Measures',
+        questions: [
+          {
+            label: 'Additional control measures recommended to reduce the residual risk rating',
+            inputType: InputType.TEXTAREA,
+            placeholder: 'Enter additional control',
+          },
+        ],
+      },
+      {
+        title: 'Residual Risk Rating (After Additional Controls)',
+        questions: [
+          textQ('Effectiveness of Control', 'Enter effectiveness of control'),
+          textQ('Residual risk = Risk Rating - Effectiveness of Control', 'Enter residual risk'),
+        ],
+      },
+    ],
+  },
 ];
 
 // ─── Seed runner ──────────────────────────────────────────────────────────────
