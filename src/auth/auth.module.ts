@@ -15,10 +15,9 @@ import { JwtStrategy } from './jwt.strategy';
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
         secret: config.get<string>('JWT_ACCESS_SECRET') ?? 'dev-access-secret',
-        signOptions: {
-          expiresIn: (config.get<string>('JWT_ACCESS_EXPIRES_IN') ??
-            '15m') as any,
-        },
+        // No expiresIn: the access token never expires, so a session stays
+        // valid until the user explicitly logs out.
+        signOptions: {},
       }),
     }),
   ],
