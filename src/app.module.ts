@@ -16,7 +16,6 @@ import { AuditModule } from './audit/audit.module';
 import { SyncModule } from './sync/sync.module';
 import { HealthModule } from './health/health.module';
 import { SystemModule } from './system/system.module';
-import { SecurityModule } from './security/security.module';
 
 import { OperationsModule } from './operations/operations.module';
 import { NotificationsModule } from './notifications/notifications.module';
@@ -40,7 +39,6 @@ import { OcrModule } from './ocr.module';
     SyncModule,
     HealthModule,
     SystemModule,
-    SecurityModule,
     OperationsModule,
     NotificationsModule,
     FormsModule,

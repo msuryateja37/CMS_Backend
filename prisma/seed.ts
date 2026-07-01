@@ -66,7 +66,7 @@ async function main() {
         "EMPLOYEE",
         "FINANCE_OFFICIAL",
         "SYSTEM_ADMINISTRATOR",
-        "SECURITY_PRACTITIONER",
+        "FIRST_AIDER",
     ];
 
     const roles: any = {};
@@ -129,7 +129,7 @@ async function main() {
         {
             name: "Security Practitioner",
             email: "security.practitioner@dlrrd.gov.za",
-            role: "SECURITY_PRACTITIONER",
+            role: "FIRST_AIDER",
             phone: "+27-11-555-0007",
             employeeNumber: "EMP007",
         },
@@ -159,21 +159,21 @@ async function main() {
         {
             name: "Bongani Zulu",
             email: "bongani.zulu@dlrrd.gov.za",
-            role: "SECURITY_PRACTITIONER",
+            role: "FIRST_AIDER",
             phone: "+27-11-555-0013",
             employeeNumber: "EMP013",
         },
         {
             name: "Lindiwe Khumalo",
             email: "lindiwe.khumalo@dlrrd.gov.za",
-            role: "SECURITY_PRACTITIONER",
+            role: "FIRST_AIDER",
             phone: "+27-11-555-0014",
             employeeNumber: "EMP014",
         },
         {
             name: "Mandla Sithole",
             email: "mandla.sithole@dlrrd.gov.za",
-            role: "SECURITY_PRACTITIONER",
+            role: "FIRST_AIDER",
             phone: "+27-11-555-0015",
             employeeNumber: "EMP015",
         },
@@ -201,7 +201,7 @@ async function main() {
                 'nomsa.mthembu@dlrrd.gov.za': 8,       // Western Cape
             };
             provinceId = provinces[ohsProvinceMap[userData.email] ?? 0]?.id;
-        } else if (userData.role === 'SECURITY_PRACTITIONER') {
+        } else if (userData.role === 'FIRST_AIDER') {
             departmentId = departments[4]?.id; // Security department
             // Spread Security practitioners across provinces
             const secProvinceMap: Record<string, number> = {

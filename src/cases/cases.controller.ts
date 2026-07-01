@@ -57,7 +57,7 @@ export class CasesController {
     UserRole.MANAGER,
     UserRole.SYSTEM_ADMINISTRATOR,
     UserRole.OHS_PRACTITIONER,
-    UserRole.SECURITY_PRACTITIONER,
+    UserRole.FIRST_AIDER,
     UserRole.FINANCE_OFFICIAL,
   )
   @Post()
@@ -74,7 +74,8 @@ export class CasesController {
     UserRole.MANAGER,
     UserRole.SYSTEM_ADMINISTRATOR,
     UserRole.OHS_PRACTITIONER,
-    UserRole.SECURITY_PRACTITIONER,
+    UserRole.FIRST_AIDER,
+    UserRole.HR,
     UserRole.EMPLOYEE,
   )
   @Get()
@@ -143,11 +144,10 @@ export class CasesController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(
-    UserRole.SUPERVISOR,
     UserRole.MANAGER,
     UserRole.SYSTEM_ADMINISTRATOR,
     UserRole.OHS_PRACTITIONER,
-    UserRole.SECURITY_PRACTITIONER,
+    UserRole.FIRST_AIDER,
   )
   @Get('sla/tracking')
   async getSlaTracking() {
@@ -166,10 +166,10 @@ export class CasesController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(
-    UserRole.SUPERVISOR,
     UserRole.MANAGER,
     UserRole.SYSTEM_ADMINISTRATOR,
     UserRole.OHS_PRACTITIONER,
+    UserRole.FIRST_AIDER,
   )
   @Put(':id')
   async update(@Req() req: Request, @Param('id') id: string, @Body() body: any) {
@@ -180,7 +180,7 @@ export class CasesController {
   // Assign Case (SUPERVISOR)
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.SUPERVISOR, UserRole.SYSTEM_ADMINISTRATOR, UserRole.MANAGER)
+  @Roles(UserRole.SYSTEM_ADMINISTRATOR, UserRole.MANAGER)
   @Put(':id/assign')
   async assign(
     @Req() req: Request,
@@ -191,15 +191,29 @@ export class CasesController {
     return this.cases.assign(id, body.assignedToId, user.sub);
   }
 
+  // Pick up a case from the province pool (OHS practitioner)
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(
+    UserRole.OHS_PRACTITIONER,
+    UserRole.MANAGER,
+    UserRole.SYSTEM_ADMINISTRATOR,
+  )
+  @Put(':id/pickup')
+  async pickup(@Req() req: Request, @Param('id') id: string) {
+    const user = req.user as { sub: string };
+    return this.cases.pickup(id, user.sub);
+  }
+
   // Update Case Status (SUPERVISOR, OHS, SECURITY)
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(
-    UserRole.SUPERVISOR,
     UserRole.SYSTEM_ADMINISTRATOR,
     UserRole.MANAGER,
     UserRole.OHS_PRACTITIONER,
-    UserRole.SECURITY_PRACTITIONER,
+    UserRole.FIRST_AIDER,
+    UserRole.HR,
   )
   @Put(':id/status')
   async updateStatus(
@@ -215,11 +229,10 @@ export class CasesController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(
-    UserRole.SUPERVISOR,
     UserRole.SYSTEM_ADMINISTRATOR,
     UserRole.MANAGER,
     UserRole.OHS_PRACTITIONER,
-    UserRole.SECURITY_PRACTITIONER,
+    UserRole.FIRST_AIDER,
   )
   @Put(':id/escalate')
   async escalate(
@@ -338,7 +351,6 @@ export class CasesController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(
-    UserRole.SUPERVISOR,
     UserRole.SYSTEM_ADMINISTRATOR,
     UserRole.MANAGER,
     UserRole.OHS_PRACTITIONER,
@@ -360,7 +372,6 @@ export class CasesController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(
-    UserRole.SUPERVISOR,
     UserRole.SYSTEM_ADMINISTRATOR,
     UserRole.MANAGER,
     UserRole.OHS_PRACTITIONER,
@@ -374,11 +385,11 @@ export class CasesController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(
-    UserRole.SUPERVISOR,
     UserRole.SYSTEM_ADMINISTRATOR,
     UserRole.MANAGER,
     UserRole.OHS_PRACTITIONER,
-    UserRole.SECURITY_PRACTITIONER,
+    UserRole.FIRST_AIDER,
+    UserRole.HR,
     UserRole.EMPLOYEE,
   )
   @Post(':id/comments')
@@ -411,11 +422,11 @@ export class CasesController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(
-    UserRole.SUPERVISOR,
     UserRole.SYSTEM_ADMINISTRATOR,
     UserRole.MANAGER,
     UserRole.OHS_PRACTITIONER,
-    UserRole.SECURITY_PRACTITIONER,
+    UserRole.FIRST_AIDER,
+    UserRole.HR,
     UserRole.EMPLOYEE,
   )
   @Post(':id/activity')
@@ -436,7 +447,12 @@ export class CasesController {
   // Close Case (MANAGER)
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.MANAGER, UserRole.SYSTEM_ADMINISTRATOR)
+  @Roles(
+    UserRole.MANAGER,
+    UserRole.SYSTEM_ADMINISTRATOR,
+    UserRole.OHS_PRACTITIONER,
+    UserRole.HR,
+  )
   @Put(':id/close')
   async close(@Req() req: Request, @Param('id') id: string) {
     const user = req.user as { sub: string };

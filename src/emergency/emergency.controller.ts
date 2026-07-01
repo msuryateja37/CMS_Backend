@@ -31,7 +31,7 @@ export class EmergencyController {
   // 41) Register Equipment (Admin)
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.SYSTEM_ADMINISTRATOR, UserRole.SECURITY_PRACTITIONER)
+  @Roles(UserRole.SYSTEM_ADMINISTRATOR, UserRole.FIRST_AIDER)
   @Post('equipment')
   registerEquipment(@Body() body: any) {
     return this.emergency.registerEquipment(body);
@@ -52,7 +52,7 @@ export class EmergencyController {
     UserRole.SUPERVISOR,
     UserRole.SYSTEM_ADMINISTRATOR,
     UserRole.OHS_PRACTITIONER,
-    UserRole.SECURITY_PRACTITIONER,
+    UserRole.FIRST_AIDER,
   )
   @Post('drills')
   recordDrill(@Body() body: any) {

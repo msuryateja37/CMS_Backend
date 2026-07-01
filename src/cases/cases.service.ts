@@ -6,7 +6,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../system/storage.service';
 import { NotificationsService } from '../notifications/notifications.service';
-import { IncidentStatus } from '@prisma/client';
+import { IncidentStatus, CoverageFunction } from '@prisma/client';
 
 @Injectable()
 export class CasesService {
@@ -43,6 +43,18 @@ export class CasesService {
       }
     }
 
+    // Resolve province from the building for routing + coverage lookups.
+    const buildingRow = await this.prisma.building.findUnique({
+      where: { id: buildingId },
+      select: { provinceId: true },
+    });
+    const provinceId: string | null = body.provinceId ?? buildingRow?.provinceId ?? null;
+
+    // Route by category: health -> province first aider; everything else -> province OHS pool.
+    const category = (body.categoryId ?? 'others').toString().toLowerCase();
+    const isHealth = category === 'health';
+    const routing = await this.routeIncident(isHealth, provinceId);
+
     const incidentNumber = body.caseNumber ?? `INC-${Date.now()}`;
 
     const incident = await this.prisma.incident.create({
@@ -52,7 +64,9 @@ export class CasesService {
         type: body.type ?? 'INCIDENT',
         category: body.categoryId ?? 'others',
         severity: body.severityLevel ?? body.severity ?? 'medium',
-        status: 'RAISED',
+        status: routing.status,
+        provinceId,
+        pickupDueAt: routing.pickupDueAt,
         description: body.description ?? '',
         occurredAt: body.occurredAt
           ? new Date(body.occurredAt as string)
@@ -123,17 +137,51 @@ export class CasesService {
     // Log the incident creation
     await this.addActivity(incident.id, 'RAISED', 'Incident created', userId);
 
-    // Notify all supervisors about the new case
-    const supervisors = await this.prisma.user.findMany({
-      where: { roles: { some: { role: { name: 'Supervisor' } } } },
-      select: { id: true },
-    });
-    for (const sup of supervisors) {
+    // Routing side-effects: assign to first aider, seed the pool, or escalate to admin.
+    if (isHealth && routing.assigneeId) {
+      await this.prisma.incidentAssignment.create({
+        data: {
+          incidentId: incident.id,
+          assignedToId: routing.assigneeId,
+          assignedById: userId,
+        },
+      });
+      await this.addActivity(
+        incident.id,
+        'ASSIGNED',
+        'Auto-assigned to province first aider (health case)',
+        userId,
+      );
       await this.notifications.create(
-        sup.id,
-        'New Case Reported',
-        `Case ${incidentNumber} has been reported and requires review.`,
+        routing.assigneeId,
+        'New Health Case Assigned',
+        `Case ${incidentNumber} (health) has been assigned to you.`,
         'cases',
+        incident.id,
+      );
+    } else if (!isHealth && routing.poolOhsId) {
+      await this.addActivity(
+        incident.id,
+        'POOL',
+        'Added to province OHS pool (pick up within 3 days)',
+        userId,
+      );
+      await this.notifications.create(
+        routing.poolOhsId,
+        'New Case in Your Pool',
+        `Case ${incidentNumber} is waiting in your province pool. Pick it up within 3 days or it escalates to the administrator.`,
+        'cases',
+        incident.id,
+      );
+    } else {
+      await this.addActivity(
+        incident.id,
+        'ESCALATED_TO_ADMIN',
+        `No ${isHealth ? 'first aider' : 'OHS practitioner'} in this province — escalated to administrator`,
+        userId,
+      );
+      await this.notifyAdmins(
+        `Case ${incidentNumber} has no ${isHealth ? 'first aider' : 'OHS practitioner'} in its province and needs administrator assignment.`,
         incident.id,
       );
     }
@@ -165,7 +213,133 @@ export class CasesService {
     return incident;
   }
 
+  /** Decide where a newly-raised incident goes based on category + province coverage. */
+  private async routeIncident(
+    isHealth: boolean,
+    provinceId: string | null,
+  ): Promise<{
+    status: IncidentStatus;
+    pickupDueAt: Date | null;
+    assigneeId: string | null;
+    poolOhsId: string | null;
+  }> {
+    if (isHealth) {
+      const cover = provinceId
+        ? await this.prisma.provinceAssignment.findUnique({
+            where: {
+              provinceId_function: {
+                provinceId,
+                function: CoverageFunction.FIRST_AIDER,
+              },
+            },
+            select: { userId: true },
+          })
+        : null;
+      if (cover?.userId) {
+        return {
+          status: IncidentStatus.ASSIGNED,
+          pickupDueAt: null,
+          assigneeId: cover.userId,
+          poolOhsId: null,
+        };
+      }
+      return {
+        status: IncidentStatus.ESCALATED_TO_ADMIN,
+        pickupDueAt: null,
+        assigneeId: null,
+        poolOhsId: null,
+      };
+    }
+
+    const cover = provinceId
+      ? await this.prisma.provinceAssignment.findUnique({
+          where: {
+            provinceId_function: {
+              provinceId,
+              function: CoverageFunction.OHS_PRACTITIONER,
+            },
+          },
+          select: { userId: true },
+        })
+      : null;
+    if (cover?.userId) {
+      return {
+        status: IncidentStatus.POOL,
+        pickupDueAt: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
+        assigneeId: null,
+        poolOhsId: cover.userId,
+      };
+    }
+    return {
+      status: IncidentStatus.ESCALATED_TO_ADMIN,
+      pickupDueAt: null,
+      assigneeId: null,
+      poolOhsId: null,
+    };
+  }
+
+  /** Notify every system administrator about an escalation. */
+  private async notifyAdmins(message: string, incidentId: string) {
+    const admins = await this.prisma.user.findMany({
+      where: { roles: { some: { role: { name: 'SYSTEM_ADMINISTRATOR' } } } },
+      select: { id: true },
+    });
+    for (const a of admins) {
+      await this.notifications.create(
+        a.id,
+        'Case Escalated to Administrator',
+        message,
+        'cases',
+        incidentId,
+      );
+    }
+  }
+
+  /**
+   * Sweep pool cases whose 3-day pickup window has lapsed and escalate them to
+   * the administrator. Called lazily whenever case lists are read (no scheduler).
+   */
+  async escalateOverduePoolCases(): Promise<void> {
+    const overdue = await this.prisma.incident.findMany({
+      where: { status: IncidentStatus.POOL, pickupDueAt: { lt: new Date() } },
+      select: { id: true, incidentNumber: true },
+    });
+    for (const inc of overdue) {
+      await this.prisma.incident.update({
+        where: { id: inc.id },
+        data: { status: IncidentStatus.ESCALATED_TO_ADMIN },
+      });
+      await this.notifyAdmins(
+        `Pool case ${inc.incidentNumber} was not picked up within 3 days and has been escalated to you.`,
+        inc.id,
+      );
+    }
+  }
+
+  /** OHS practitioner pulls a case out of their province pool. */
+  async pickup(id: string, userId: string) {
+    const incident = await this.prisma.incident.findUnique({
+      where: { id },
+      select: { status: true, incidentNumber: true },
+    });
+    if (!incident) throw new NotFoundException('Case not found');
+    if (incident.status !== IncidentStatus.POOL) {
+      throw new BadRequestException('Only cases in the pool can be picked up');
+    }
+    await this.prisma.incidentAssignment.create({
+      data: { incidentId: id, assignedToId: userId, assignedById: userId },
+    });
+    await this.prisma.incident.update({
+      where: { id },
+      data: { status: IncidentStatus.ASSIGNED, pickupDueAt: null },
+    });
+    await this.addActivity(id, 'ASSIGNED', 'Picked up from province pool', userId);
+    return this.getById(id);
+  }
+
   async list(query: any) {
+    // Lazily escalate any pool cases that blew their 3-day pickup window.
+    await this.escalateOverduePoolCases();
     const where: any = {};
 
     if (query.status) where.status = query.status;

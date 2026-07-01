@@ -13,15 +13,24 @@ datasource db {
 
 enum IncidentStatus {
   RAISED
+  POOL                 // safety/env/other: waiting for a province OHS practitioner to pick up
   UNDER_REVIEW
   REJECTED
   ASSIGNED
   INVESTIGATION_IN_PROGRESS
   TASK_IN_PROGRESS
   WAITING_APPROVAL
+  ESCALATED_TO_ADMIN   // pool item not picked up within the SLA window, or no OHS in province
   COMPLETED
   REOPENED
   CLOSED
+}
+
+// Which coverage function a province slot represents.
+enum CoverageFunction {
+  OHS_PRACTITIONER
+  FIRST_AIDER
+  HR
 }
 
 
@@ -50,7 +59,25 @@ model Province {
   name      String     @unique
   buildings Building[]
   users     User[]
+  incidents Incident[]
+  coverage  ProvinceAssignment[]
   createdAt DateTime   @default(now())
+}
+
+// One OHS practitioner and one first aider slot per province.
+// The unique constraint enforces "at most one per (province, function)".
+// A province with no row for a function = no coverage (gap case).
+model ProvinceAssignment {
+  id         String           @id @default(uuid())
+  province   Province         @relation(fields: [provinceId], references: [id])
+  provinceId String
+  function   CoverageFunction
+  user       User?            @relation("ProvinceCoverage", fields: [userId], references: [id])
+  userId     String?
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+
+  @@unique([provinceId, function])
 }
 
 model Building {
@@ -114,6 +141,7 @@ model User {
   inspectionsConducted Inspection[]         @relation("Inspector")
   formResponses        FormResponse[]
   formsCreated         Form[]               @relation("FormCreator")
+  provinceCoverage     ProvinceAssignment[] @relation("ProvinceCoverage")
 }
 
 model Role {
@@ -170,6 +198,13 @@ model Incident {
   building   Building @relation(fields: [buildingId], references: [id])
   buildingId String
 
+  // Denormalised province for pool routing / coverage lookups (derived from building on create).
+  province   Province? @relation(fields: [provinceId], references: [id])
+  provinceId String?
+
+  // For pool cases (safety/env/other): when the pickup SLA lapses (raise + 3 days).
+  pickupDueAt DateTime?
+
   department   Department? @relation(fields: [departmentId], references: [id])
   departmentId String?
 
@@ -220,6 +255,7 @@ model IncidentMedia {
   id           String   @id @default(uuid())
   fileUrl      String
   fileType     String
+  fileName     String?
   uploaderRole String?
   uploadedBy   User?    @relation("MediaUploader", fields: [uploadedById], references: [id])
   uploadedById String?
