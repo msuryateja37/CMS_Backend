@@ -169,6 +169,33 @@ export class CasesService {
       );
     }
 
+    // Notify the supervisor(s) in the same province about the new case
+    const reporterProvinceId = provinceId;
+    if (reporterProvinceId) {
+      const supervisors = await this.prisma.user.findMany({
+        where: {
+          provinceId: reporterProvinceId,
+          roles: {
+            some: {
+              role: {
+                name: { equals: 'SUPERVISOR', mode: 'insensitive' },
+              },
+            },
+          },
+        },
+        select: { id: true },
+      });
+      for (const supervisor of supervisors) {
+        await this.notifications.create(
+          supervisor.id,
+          'New Case Reported',
+          `A new case (${incidentNumber}) has been raised in your province. Please review and take action.`,
+          'cases',
+          incident.id,
+        );
+      }
+    }
+
     // Initialize SLA tracking if matching SLA rule exists
     const sla = await this.prisma.sLA.findFirst({
       where: {
