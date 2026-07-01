@@ -67,6 +67,7 @@ async function main() {
         "FINANCE_OFFICIAL",
         "SYSTEM_ADMINISTRATOR",
         "FIRST_AIDER",
+        "HR",
     ];
 
     const roles: any = {};
@@ -341,6 +342,180 @@ async function main() {
                 } catch (e) {
                     // ignore
                 }
+            }
+        }
+    }
+
+    //////////////////////////////////////////////////////
+    // 7️⃣ Province-Specific Logins (Employee, Supervisor, First Aider, OHS, HR)
+    //////////////////////////////////////////////////////
+    console.log("🌱 Seeding province-specific logins...");
+    
+    const slug = (name: string) => name.replace(/\s+/g, '').toLowerCase();
+    
+    const healthDept = departments.find(d => d.name === 'Health');
+    const ohsDept = departments.find(d => d.name === 'OHS');
+    const securityDept = departments.find(d => d.name === 'Security');
+    
+    let counter = 8000;
+    for (const p of provinces) {
+        const provSlug = slug(p.name);
+        
+        // 1. Employee
+        const empEmail = `employee.${provSlug}@dlrrd.gov.za`;
+        counter++;
+        const empUser = await prisma.user.upsert({
+            where: { email: empEmail },
+            update: { provinceId: p.id, departmentId: healthDept?.id },
+            create: {
+                name: `Employee ${p.name}`,
+                email: empEmail,
+                phone: `+27-11-555-${counter}`,
+                employeeNumber: `EMP${counter}`,
+                provinceId: p.id,
+                departmentId: healthDept?.id,
+            }
+        });
+        try {
+            await prisma.userRole.create({
+                data: {
+                    userId: empUser.id,
+                    roleId: roles["EMPLOYEE"].id,
+                },
+            });
+        } catch (e) {}
+
+        // 2. Supervisor (Sarah Mokae for Gauteng, Supervisor <Province> otherwise)
+        const supEmail = `supervisor.${provSlug}@dlrrd.gov.za`;
+        counter++;
+        const supName = p.name === 'Gauteng' ? 'Sarah Mokae' : `Supervisor ${p.name}`;
+        const supUser = await prisma.user.upsert({
+            where: { email: supEmail },
+            update: { provinceId: p.id, departmentId: securityDept?.id },
+            create: {
+                name: supName,
+                email: supEmail,
+                phone: `+27-11-555-${counter}`,
+                employeeNumber: `EMP${counter}`,
+                provinceId: p.id,
+                departmentId: securityDept?.id,
+            }
+        });
+        try {
+            await prisma.userRole.create({
+                data: {
+                    userId: supUser.id,
+                    roleId: roles["SUPERVISOR"].id,
+                },
+            });
+        } catch (e) {}
+
+        // 3. First Aider
+        const faEmail = `firstaider.${provSlug}@dlrrd.gov.za`;
+        counter++;
+        const faUser = await prisma.user.upsert({
+            where: { email: faEmail },
+            update: { provinceId: p.id, departmentId: healthDept?.id },
+            create: {
+                name: `First Aider ${p.name}`,
+                email: faEmail,
+                phone: `+27-11-555-${counter}`,
+                employeeNumber: `EMP${counter}`,
+                provinceId: p.id,
+                departmentId: healthDept?.id,
+            }
+        });
+        try {
+            await prisma.userRole.create({
+                data: {
+                    userId: faUser.id,
+                    roleId: roles["FIRST_AIDER"].id,
+                },
+            });
+        } catch (e) {}
+        
+        await prisma.provinceAssignment.upsert({
+            where: { provinceId_function: { provinceId: p.id, function: 'FIRST_AIDER' } },
+            update: { userId: faUser.id },
+            create: { provinceId: p.id, function: 'FIRST_AIDER', userId: faUser.id }
+        });
+
+        // 4. OHS Practitioner
+        const ohsEmail = `ohspractitioner.${provSlug}@dlrrd.gov.za`;
+        counter++;
+        const ohsUser = await prisma.user.upsert({
+            where: { email: ohsEmail },
+            update: { provinceId: p.id, departmentId: ohsDept?.id },
+            create: {
+                name: `OHS Practitioner ${p.name}`,
+                email: ohsEmail,
+                phone: `+27-11-555-${counter}`,
+                employeeNumber: `EMP${counter}`,
+                provinceId: p.id,
+                departmentId: ohsDept?.id,
+            }
+        });
+        try {
+            await prisma.userRole.create({
+                data: {
+                    userId: ohsUser.id,
+                    roleId: roles["OHS_PRACTITIONER"].id,
+                },
+            });
+        } catch (e) {}
+        
+        // Only GP, WC, KZN, FS, LMP, MP are self-covered locally
+        const isSelfCoveredOHS = ['gauteng', 'westerncape', 'kwazulunatal', 'freestate', 'limpopo', 'mpumalanga', 'nationaloffice'].includes(provSlug);
+        if (isSelfCoveredOHS) {
+            await prisma.provinceAssignment.upsert({
+                where: { provinceId_function: { provinceId: p.id, function: 'OHS_PRACTITIONER' } },
+                update: { userId: ohsUser.id },
+                create: { provinceId: p.id, function: 'OHS_PRACTITIONER', userId: ohsUser.id }
+            });
+        }
+
+        // 5. HR Officer
+        const hrEmail = `hr.${provSlug}@dlrrd.gov.za`;
+        counter++;
+        const hrUser = await prisma.user.upsert({
+            where: { email: hrEmail },
+            update: { provinceId: p.id },
+            create: {
+                name: `HR Officer ${p.name}`,
+                email: hrEmail,
+                phone: `+27-11-555-${counter}`,
+                employeeNumber: `EMP${counter}`,
+                provinceId: p.id,
+            }
+        });
+        try {
+            await prisma.userRole.create({
+                data: {
+                    userId: hrUser.id,
+                    roleId: roles["HR"].id,
+                },
+            });
+        } catch (e) {}
+        
+        await prisma.provinceAssignment.upsert({
+            where: { provinceId_function: { provinceId: p.id, function: 'HR' } },
+            update: { userId: hrUser.id },
+            create: { provinceId: p.id, function: 'HR', userId: hrUser.id }
+        });
+    }
+
+    // Map National Office OHS to EC, NC, NW
+    const nationalOHS = await prisma.user.findUnique({ where: { email: 'ohspractitioner.nationaloffice@dlrrd.gov.za' } });
+    if (nationalOHS) {
+        for (const p of provinces) {
+            const pSlug = slug(p.name);
+            if (['easterncape', 'northerncape', 'northwest'].includes(pSlug)) {
+                await prisma.provinceAssignment.upsert({
+                    where: { provinceId_function: { provinceId: p.id, function: 'OHS_PRACTITIONER' } },
+                    update: { userId: nationalOHS.id },
+                    create: { provinceId: p.id, function: 'OHS_PRACTITIONER', userId: nationalOHS.id }
+                });
+                console.log(`🔗 Routed OHS for ${p.name} to National Office (${nationalOHS.email})`);
             }
         }
     }

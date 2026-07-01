@@ -79,8 +79,9 @@ export class CasesController {
     UserRole.EMPLOYEE,
   )
   @Get()
-  async list(@Query() query: any) {
-    return this.cases.list(query);
+  async list(@Req() req: Request, @Query() query: any) {
+    const user = req.user as { sub: string } | undefined;
+    return this.cases.list(query, user?.sub);
   }
 
   // Get KPI Metrics
@@ -191,13 +192,15 @@ export class CasesController {
     return this.cases.assign(id, body.assignedToId, user.sub);
   }
 
-  // Pick up a case from the province pool (OHS practitioner)
+  // Pick up a case from the province pool (OHS practitioner / first aider / hr)
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(
     UserRole.OHS_PRACTITIONER,
     UserRole.MANAGER,
     UserRole.SYSTEM_ADMINISTRATOR,
+    UserRole.FIRST_AIDER,
+    UserRole.HR,
   )
   @Put(':id/pickup')
   async pickup(@Req() req: Request, @Param('id') id: string) {
