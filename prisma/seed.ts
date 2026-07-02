@@ -441,37 +441,42 @@ async function main() {
         });
 
         // 4. OHS Practitioner
-        const ohsEmail = `ohspractitioner.${provSlug}@dlrrd.gov.za`;
-        counter++;
-        const ohsUser = await prisma.user.upsert({
-            where: { email: ohsEmail },
-            update: { provinceId: p.id, departmentId: ohsDept?.id },
-            create: {
-                name: `OHS Practitioner ${p.name}`,
-                email: ohsEmail,
-                phone: `+27-11-555-${counter}`,
-                employeeNumber: `EMP${counter}`,
-                provinceId: p.id,
-                departmentId: ohsDept?.id,
-            }
-        });
-        try {
-            await prisma.userRole.create({
-                data: {
-                    userId: ohsUser.id,
-                    roleId: roles["OHS_PRACTITIONER"].id,
-                },
-            });
-        } catch (e) {}
+        const isNationalOffice = provSlug === 'nationaloffice';
+        const isSkipOHS = ['easterncape', 'northerncape', 'northwest'].includes(provSlug);
         
-        // Only GP, WC, KZN, FS, LMP, MP are self-covered locally
-        const isSelfCoveredOHS = ['gauteng', 'westerncape', 'kwazulunatal', 'freestate', 'limpopo', 'mpumalanga', 'nationaloffice'].includes(provSlug);
-        if (isSelfCoveredOHS) {
-            await prisma.provinceAssignment.upsert({
-                where: { provinceId_function: { provinceId: p.id, function: 'OHS_PRACTITIONER' } },
-                update: { userId: ohsUser.id },
-                create: { provinceId: p.id, function: 'OHS_PRACTITIONER', userId: ohsUser.id }
+        if (!isSkipOHS) {
+            const ohsEmail = `ohspractitioner.${provSlug}@dlrrd.gov.za`;
+            counter++;
+            const ohsUser = await prisma.user.upsert({
+                where: { email: ohsEmail },
+                update: { provinceId: p.id, departmentId: ohsDept?.id },
+                create: {
+                    name: isNationalOffice ? 'National Office (ASD OHS)' : `OHS Practitioner ${p.name}`,
+                    email: ohsEmail,
+                    phone: `+27-11-555-${counter}`,
+                    employeeNumber: `EMP${counter}`,
+                    provinceId: p.id,
+                    departmentId: ohsDept?.id,
+                }
             });
+            try {
+                await prisma.userRole.create({
+                    data: {
+                        userId: ohsUser.id,
+                        roleId: roles["OHS_PRACTITIONER"].id,
+                    },
+                });
+            } catch (e) {}
+            
+            // Only GP, WC, KZN, FS, LMP, MP are self-covered locally
+            const isSelfCoveredOHS = ['gauteng', 'westerncape', 'kwazulunatal', 'freestate', 'limpopo', 'mpumalanga', 'nationaloffice'].includes(provSlug);
+            if (isSelfCoveredOHS) {
+                await prisma.provinceAssignment.upsert({
+                    where: { provinceId_function: { provinceId: p.id, function: 'OHS_PRACTITIONER' } },
+                    update: { userId: ohsUser.id },
+                    create: { provinceId: p.id, function: 'OHS_PRACTITIONER', userId: ohsUser.id }
+                });
+            }
         }
 
         // 5. HR Officer
