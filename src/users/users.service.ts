@@ -168,10 +168,13 @@ export class UsersService {
     if (query.provinceId) where.provinceId = query.provinceId;
     if (query.departmentId) where.departmentId = query.departmentId;
     if (query.role) {
+      const roleNames = query.role === 'OHS_PRACTITIONER'
+        ? ['OHS_PRACTITIONER', 'OHS_NATIONAL_OFFICE']
+        : [query.role];
       where.roles = {
         some: {
           role: {
-            name: query.role,
+            name: { in: roleNames },
           },
         },
       };

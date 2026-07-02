@@ -236,6 +236,7 @@ model Incident {
 
   isActive  Boolean   @default(true)
   deletedAt DateTime?
+  annexureOne AnnexureOne?
 }
 
 model ImpactedPerson {
@@ -753,5 +754,49 @@ model QuestionResponse {
   @@index([responseId])
   @@index([questionId])
   @@index([questionId, selectedOptionId])
+}
+
+model AnnexureOne {
+  id                            String   @id @default(uuid())
+  incidentId                    String   @unique
+  incident                      Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  
+  // Part A
+  employerName                  String?
+  affectedName                  String?
+  affectedIdNumber              String?
+  dateOfIncident                String?
+  timeOfIncident                String?
+  bodyPartsAffected             String?
+  effectOnPerson                String?
+  disablementPeriod             String?
+  occupationalDiseaseDesc       String?
+  machineProcess                String?
+  reportedToCommissioner        Boolean?
+  reportedToPolice              Boolean?
+  sapsOfficeRef                 String?
+
+  // Part B
+  investigatorName              String?
+  investigatorDesignation       String?
+  investigationDate             String?
+  incidentShortDesc             String?
+  suspectedCause                String?
+  recommendedSteps              String?
+  investigatorSignature         String?
+  investigatorSigDate           String?
+
+  // Part C
+  employerRemarks               String?
+  employerSignature             String?
+  employerSigDate               String?
+
+  // Part D
+  committeeRemarks              String?
+  committeeChairpersonSignature String?
+  committeeChairpersonSigDate   String?
+
+  createdAt                     DateTime @default(now())
+  updatedAt                     DateTime @updatedAt
 }
 

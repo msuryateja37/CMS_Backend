@@ -67,6 +67,7 @@ async function main() {
 
     // Fetch roles
     const ohsRole = await prisma.role.findUnique({ where: { name: "OHS_PRACTITIONER" } });
+    const ohsNationalRole = await prisma.role.findUnique({ where: { name: "OHS_NATIONAL_OFFICE" } });
     const secRole = await prisma.role.findUnique({ where: { name: "SECURITY_PRACTITIONER" } });
     if (!ohsRole || !secRole) {
         console.error("❌ OHS_PRACTITIONER or SECURITY_PRACTITIONER role not found. Run the main seed first.");
@@ -125,8 +126,9 @@ async function main() {
 
             // Assign OHS role
             try {
+                const assignedRoleId = (isNationalOffice && ohsNationalRole) ? ohsNationalRole.id : ohsRole.id;
                 await prisma.userRole.create({
-                    data: { userId: user.id, roleId: ohsRole.id },
+                    data: { userId: user.id, roleId: assignedRoleId },
                 });
             } catch (_e) {
                 // unique constraint — already assigned

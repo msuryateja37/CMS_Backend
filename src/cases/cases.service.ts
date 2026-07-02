@@ -365,6 +365,10 @@ export class CasesService {
       });
       const roles = callingUser?.roles.map(r => r.role.name.toLowerCase().replace(/_/g, ' ').replace(/\s+/g, ' ').trim()) || [];
       const isSupervisor = roles.includes('supervisor');
+      const isOhsPractitioner = roles.includes('ohs practitioner');
+      const isOhsNationalOffice = roles.includes('ohs national office');
+      const isFirstAider = roles.includes('first aider');
+
       if (isSupervisor) {
         const provId = callingUser?.provinceId;
         if (provId) {
@@ -374,11 +378,22 @@ export class CasesService {
             { provinceId: provId }
           ];
         }
+      } else if (isOhsPractitioner && !isOhsNationalOffice) {
+        const provId = callingUser?.provinceId;
+        if (provId) {
+          where.provinceId = provId;
+        }
+      } else if (isFirstAider) {
+        const provId = callingUser?.provinceId;
+        if (provId) {
+          where.provinceId = provId;
+        }
       }
     }
 
     if (query.status) where.status = query.status;
     if (query.buildingId) where.buildingId = query.buildingId;
+    if (query.provinceId) where.provinceId = query.provinceId;
     if (query.reported_by) where.reportedById = query.reported_by;
     if (query.type) where.type = query.type;
     if (query.priorityLevel || query.severity) {
@@ -1386,5 +1401,46 @@ export class CasesService {
   async getUpcomingHearings(_userId: string) {
     await Promise.resolve();
     return [];
+  }
+
+  async getAnnexureOne(incidentId: string) {
+    let annex = await this.prisma.annexureOne.findUnique({
+      where: { incidentId },
+    });
+    if (!annex) {
+      const incident = await this.prisma.incident.findUnique({
+        where: { id: incidentId },
+        include: { reportedBy: true },
+      });
+      annex = await this.prisma.annexureOne.create({
+        data: {
+          incidentId,
+          affectedName: incident?.reportedBy?.name || '',
+          employerName: 'Department of Land Reform and Rural Development',
+          dateOfIncident: incident?.occurredAt ? new Date(incident.occurredAt).toISOString().split('T')[0] : '',
+        },
+      });
+    }
+    return annex;
+  }
+
+  async updateAnnexureOne(incidentId: string, data: any) {
+    const { id, incidentId: _, createdAt: __, updatedAt: ___, ...updateData } = data;
+    
+    if (updateData.reportedToCommissioner !== undefined) {
+      updateData.reportedToCommissioner = updateData.reportedToCommissioner === true || updateData.reportedToCommissioner === 'true';
+    }
+    if (updateData.reportedToPolice !== undefined) {
+      updateData.reportedToPolice = updateData.reportedToPolice === true || updateData.reportedToPolice === 'true';
+    }
+
+    return this.prisma.annexureOne.upsert({
+      where: { incidentId },
+      create: {
+        ...updateData,
+        incidentId,
+      },
+      update: updateData,
+    });
   }
 }

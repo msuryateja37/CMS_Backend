@@ -63,6 +63,7 @@ async function main() {
         "SUPERVISOR",
         "MANAGER",
         "OHS_PRACTITIONER",
+        "OHS_NATIONAL_OFFICE",
         "EMPLOYEE",
         "FINANCE_OFFICIAL",
         "SYSTEM_ADMINISTRATOR",

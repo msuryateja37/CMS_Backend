@@ -470,4 +470,34 @@ export class CasesController {
   async delete(@Param('id') id: string) {
     return this.cases.softDelete(id);
   }
+
+  // Get Annexure 1
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(
+    UserRole.SYSTEM_ADMINISTRATOR,
+    UserRole.MANAGER,
+    UserRole.OHS_PRACTITIONER,
+    UserRole.OHS_NATIONAL_OFFICE,
+    UserRole.FIRST_AIDER,
+    UserRole.HR,
+  )
+  @Get(':id/annexure1')
+  async getAnnexureOne(@Param('id') id: string) {
+    return this.cases.getAnnexureOne(id);
+  }
+
+  // Update Annexure 1
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(
+    UserRole.SYSTEM_ADMINISTRATOR,
+    UserRole.MANAGER,
+    UserRole.OHS_PRACTITIONER,
+    UserRole.OHS_NATIONAL_OFFICE,
+  )
+  @Put(':id/annexure1')
+  async updateAnnexureOne(@Param('id') id: string, @Body() body: any) {
+    return this.cases.updateAnnexureOne(id, body);
+  }
 }
