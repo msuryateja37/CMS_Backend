@@ -410,10 +410,9 @@ export class CasesService {
 
     if (query.hrFlow === 'true') {
       where.category = { equals: 'health', mode: 'insensitive' };
-      where.OR = [
-        { status: 'FORWARDED_TO_OHS_AND_HR' },
-        { hrStatus: { not: null } }
-      ];
+      where.status = {
+        in: ['FORWARDED_TO_OHS_AND_HR', 'ASSIGNED', 'INVESTIGATION_IN_PROGRESS', 'WAITING_APPROVAL', 'CLOSED'],
+      };
     } else if (query.status) {
       if (typeof query.status === 'string' && query.status.includes(',')) {
         where.status = { in: query.status.split(',').map((s: string) => s.trim()) };
@@ -467,12 +466,17 @@ export class CasesService {
         where,
         include: {
           reportedBy: true,
-          building: true,
+          building: {
+            include: { province: true },
+          },
           annexureOne: true,
           assignments: {
             include: { assignedTo: true },
             orderBy: { assignedAt: 'desc' },
             take: 1,
+          },
+          hrAssignedTo: {
+            select: { id: true, name: true, email: true },
           },
         },
         orderBy: { createdAt: 'desc' },
@@ -533,6 +537,9 @@ export class CasesService {
             },
           },
           orderBy: { createdAt: 'asc' },
+        },
+        hrAssignedTo: {
+          select: { id: true, name: true, email: true },
         },
       },
     });
