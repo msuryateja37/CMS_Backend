@@ -391,7 +391,18 @@ export class CasesService {
       }
     }
 
-    if (query.status) where.status = query.status;
+    if (query.status) {
+      if (typeof query.status === 'string' && query.status.includes(',')) {
+        where.status = { in: query.status.split(',').map((s: string) => s.trim()) };
+      } else {
+        where.status = query.status;
+      }
+    }
+    if (query.unassignedOnly === 'true') {
+      where.assignments = {
+        none: {},
+      };
+    }
     if (query.buildingId) where.buildingId = query.buildingId;
     if (query.provinceId) where.provinceId = query.provinceId;
     if (query.reported_by) where.reportedById = query.reported_by;
@@ -1455,7 +1466,7 @@ export class CasesService {
     const updated = await this.prisma.incident.update({
       where: { id },
       data: {
-        status: IncidentStatus.POOL,
+        status: IncidentStatus.UNDER_REVIEW,
         assignments: {
           deleteMany: {}, // Clear current assignment to First Aider
         },
@@ -1475,7 +1486,7 @@ export class CasesService {
 
     await this.addActivity(
       id,
-      'POOL',
+      'UNDER_REVIEW',
       'Forwarded to OHS & HR (Hospitalized)',
       userId,
     );
