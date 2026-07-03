@@ -330,20 +330,37 @@ export class CasesService {
   async pickup(id: string, userId: string) {
     const incident = await this.prisma.incident.findUnique({
       where: { id },
-      select: { status: true, incidentNumber: true },
+      select: { status: true, incidentNumber: true, category: true },
     });
     if (!incident) throw new NotFoundException('Case not found');
-    if (incident.status !== IncidentStatus.POOL) {
-      throw new BadRequestException('Only cases in the pool can be picked up');
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: { roles: { include: { role: true } } },
+    });
+    const roles = user?.roles.map(r => r.role.name.toUpperCase()) || [];
+    const isFirstAider = roles.includes('FIRST_AIDER');
+
+    const allowedStatuses: IncidentStatus[] = [IncidentStatus.POOL, IncidentStatus.FORWARDED_TO_OHS_AND_HR];
+    if (!allowedStatuses.includes(incident.status)) {
+      throw new BadRequestException('Only cases in the pool or forwarded status can be picked up');
     }
+
     await this.prisma.incidentAssignment.create({
       data: { incidentId: id, assignedToId: userId, assignedById: userId },
     });
+
+    let targetStatus: IncidentStatus = IncidentStatus.ASSIGNED;
+    if (isFirstAider && incident.category?.toLowerCase() === 'health') {
+      targetStatus = IncidentStatus.FA_ASSIGNED;
+    }
+
     await this.prisma.incident.update({
       where: { id },
-      data: { status: IncidentStatus.ASSIGNED, pickupDueAt: null },
+      data: { status: targetStatus, pickupDueAt: null },
     });
-    await this.addActivity(id, 'ASSIGNED', 'Picked up from province pool', userId);
+
+    await this.addActivity(id, targetStatus, `Picked up by ${isFirstAider ? 'First Aider' : 'OHS Practitioner'}`, userId);
     return this.getById(id);
   }
 
@@ -391,7 +408,13 @@ export class CasesService {
       }
     }
 
-    if (query.status) {
+    if (query.hrFlow === 'true') {
+      where.category = { equals: 'health', mode: 'insensitive' };
+      where.OR = [
+        { status: 'FORWARDED_TO_OHS_AND_HR' },
+        { hrStatus: { not: null } }
+      ];
+    } else if (query.status) {
       if (typeof query.status === 'string' && query.status.includes(',')) {
         where.status = { in: query.status.split(',').map((s: string) => s.trim()) };
       } else {
@@ -1466,7 +1489,8 @@ export class CasesService {
     const updated = await this.prisma.incident.update({
       where: { id },
       data: {
-        status: IncidentStatus.UNDER_REVIEW,
+        status: IncidentStatus.FORWARDED_TO_OHS_AND_HR,
+        hrStatus: 'HR_UNASSIGNED',
         assignments: {
           deleteMany: {}, // Clear current assignment to First Aider
         },
@@ -1486,7 +1510,7 @@ export class CasesService {
 
     await this.addActivity(
       id,
-      'UNDER_REVIEW',
+      'FORWARDED_TO_OHS_AND_HR',
       'Forwarded to OHS & HR (Hospitalized)',
       userId,
     );
@@ -1520,5 +1544,28 @@ export class CasesService {
     }
 
     return updated;
+  }
+
+  async hrPickup(id: string, userId: string) {
+    const updated = await this.prisma.incident.update({
+      where: { id },
+      data: {
+        hrStatus: 'HR_ASSIGNED',
+        hrAssignedToId: userId,
+      },
+    });
+    await this.addActivity(id, 'UNDER_REVIEW', 'Incident assigned to HR Officer', userId);
+    return this.getById(id);
+  }
+
+  async hrUpdateStatus(id: string, hrStatus: string, userId: string) {
+    const updated = await this.prisma.incident.update({
+      where: { id },
+      data: {
+        hrStatus,
+      },
+    });
+    await this.addActivity(id, 'UNDER_REVIEW', `HR status updated to ${hrStatus}`, userId);
+    return this.getById(id);
   }
 }

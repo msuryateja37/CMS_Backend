@@ -513,4 +513,34 @@ export class CasesController {
     const user = req.user as { sub: string };
     return this.cases.forwardToOhs(id, user.sub);
   }
+
+  // HR Pickup Incident
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(
+    UserRole.SYSTEM_ADMINISTRATOR,
+    UserRole.HR,
+  )
+  @Put(':id/hr-pickup')
+  async hrPickup(@Req() req: Request, @Param('id') id: string) {
+    const user = req.user as { sub: string };
+    return this.cases.hrPickup(id, user.sub);
+  }
+
+  // HR Update Status
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(
+    UserRole.SYSTEM_ADMINISTRATOR,
+    UserRole.HR,
+  )
+  @Put(':id/hr-status')
+  async hrUpdateStatus(
+    @Req() req: Request,
+    @Param('id') id: string,
+    @Body('hrStatus') hrStatus: string,
+  ) {
+    const user = req.user as { sub: string };
+    return this.cases.hrUpdateStatus(id, hrStatus, user.sub);
+  }
 }

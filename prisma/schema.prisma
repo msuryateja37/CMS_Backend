@@ -13,14 +13,16 @@ datasource db {
 
 enum IncidentStatus {
   RAISED
-  POOL                 // safety/env/other: waiting for a province OHS practitioner to pick up
+  POOL
+  FA_ASSIGNED
+  FORWARDED_TO_OHS_AND_HR
   UNDER_REVIEW
   REJECTED
   ASSIGNED
   INVESTIGATION_IN_PROGRESS
   TASK_IN_PROGRESS
   WAITING_APPROVAL
-  ESCALATED_TO_ADMIN   // pool item not picked up within the SLA window, or no OHS in province
+  ESCALATED_TO_ADMIN
   COMPLETED
   REOPENED
   CLOSED
@@ -142,6 +144,7 @@ model User {
   formResponses        FormResponse[]
   formsCreated         Form[]               @relation("FormCreator")
   provinceCoverage     ProvinceAssignment[] @relation("ProvinceCoverage")
+  hrAssignedIncidents  Incident[]           @relation("HrAssignedTo")
 }
 
 model Role {
@@ -194,6 +197,9 @@ model Incident {
   location         String?        // Location description
   peopleImpacted   Int?           // Number of people impacted
   status           IncidentStatus @default(RAISED)
+  hrStatus         String?        // HR_UNASSIGNED, HR_ASSIGNED, HR_UNDER_REVIEW, HR_APPROVED
+  hrAssignedTo     User?          @relation("HrAssignedTo", fields: [hrAssignedToId], references: [id])
+  hrAssignedToId   String?
 
   building   Building @relation(fields: [buildingId], references: [id])
   buildingId String
