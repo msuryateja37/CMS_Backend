@@ -500,4 +500,17 @@ export class CasesController {
   async updateAnnexureOne(@Param('id') id: string, @Body() body: any) {
     return this.cases.updateAnnexureOne(id, body);
   }
+
+  // Forward to OHS (First Aider)
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(
+    UserRole.SYSTEM_ADMINISTRATOR,
+    UserRole.FIRST_AIDER,
+  )
+  @Put(':id/forward-ohs')
+  async forwardToOhs(@Req() req: Request, @Param('id') id: string) {
+    const user = req.user as { sub: string };
+    return this.cases.forwardToOhs(id, user.sub);
+  }
 }

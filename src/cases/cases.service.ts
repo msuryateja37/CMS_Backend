@@ -434,6 +434,7 @@ export class CasesService {
         include: {
           reportedBy: true,
           building: true,
+          annexureOne: true,
           assignments: {
             include: { assignedTo: true },
             orderBy: { assignedAt: 'desc' },
@@ -469,6 +470,7 @@ export class CasesService {
             province: true,
           },
         },
+        annexureOne: true,
         department: true,
         media: {
           include: {
@@ -1442,5 +1444,70 @@ export class CasesService {
       },
       update: updateData,
     });
+  }
+
+  async forwardToOhs(id: string, userId: string) {
+    const incident = await this.prisma.incident.findUnique({
+      where: { id },
+      include: { reportedBy: true },
+    });
+
+    const updated = await this.prisma.incident.update({
+      where: { id },
+      data: {
+        status: IncidentStatus.POOL,
+        assignments: {
+          deleteMany: {}, // Clear current assignment to First Aider
+        },
+      },
+    });
+
+    await this.prisma.annexureOne.upsert({
+      where: { incidentId: id },
+      create: {
+        incidentId: id,
+        affectedName: incident?.reportedBy?.name || '',
+        employerName: 'Department of Land Reform and Rural Development',
+        dateOfIncident: incident?.occurredAt ? new Date(incident.occurredAt).toISOString().split('T')[0] : '',
+      },
+      update: {},
+    });
+
+    await this.addActivity(
+      id,
+      'POOL',
+      'Forwarded to OHS & HR (Hospitalized)',
+      userId,
+    );
+
+    const provinceId = updated.provinceId;
+    if (provinceId) {
+      const ohsPractitioners = await this.prisma.user.findMany({
+        where: {
+          provinceId,
+          roles: {
+            some: {
+              role: {
+                name: {
+                  in: ['OHS_PRACTITIONER', 'OHS_NATIONAL_OFFICE']
+                }
+              },
+            },
+          },
+        },
+      });
+
+      for (const ohs of ohsPractitioners) {
+        await this.notifications.create(
+          ohs.id,
+          'Hospitalization Incident Forwarded',
+          `A health case (${updated.incidentNumber}) has been forwarded to OHS due to hospitalization.`,
+          'cases',
+          id
+        );
+      }
+    }
+
+    return updated;
   }
 }
