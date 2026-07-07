@@ -13,15 +13,26 @@ datasource db {
 
 enum IncidentStatus {
   RAISED
+  POOL
+  FA_ASSIGNED
+  FORWARDED_TO_OHS_AND_HR
   UNDER_REVIEW
   REJECTED
   ASSIGNED
   INVESTIGATION_IN_PROGRESS
   TASK_IN_PROGRESS
   WAITING_APPROVAL
+  ESCALATED_TO_ADMIN
   COMPLETED
   REOPENED
   CLOSED
+}
+
+// Which coverage function a province slot represents.
+enum CoverageFunction {
+  OHS_PRACTITIONER
+  FIRST_AIDER
+  HR
 }
 
 
@@ -50,7 +61,25 @@ model Province {
   name      String     @unique
   buildings Building[]
   users     User[]
+  incidents Incident[]
+  coverage  ProvinceAssignment[]
   createdAt DateTime   @default(now())
+}
+
+// One OHS practitioner and one first aider slot per province.
+// The unique constraint enforces "at most one per (province, function)".
+// A province with no row for a function = no coverage (gap case).
+model ProvinceAssignment {
+  id         String           @id @default(uuid())
+  province   Province         @relation(fields: [provinceId], references: [id])
+  provinceId String
+  function   CoverageFunction
+  user       User?            @relation("ProvinceCoverage", fields: [userId], references: [id])
+  userId     String?
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+
+  @@unique([provinceId, function])
 }
 
 model Building {
@@ -114,6 +143,8 @@ model User {
   inspectionsConducted Inspection[]         @relation("Inspector")
   formResponses        FormResponse[]
   formsCreated         Form[]               @relation("FormCreator")
+  provinceCoverage     ProvinceAssignment[] @relation("ProvinceCoverage")
+  hrAssignedIncidents  Incident[]           @relation("HrAssignedTo")
 }
 
 model Role {
@@ -166,9 +197,19 @@ model Incident {
   location         String?        // Location description
   peopleImpacted   Int?           // Number of people impacted
   status           IncidentStatus @default(RAISED)
+  hrStatus         String?        // HR_UNASSIGNED, HR_ASSIGNED, HR_UNDER_REVIEW, HR_APPROVED
+  hrAssignedTo     User?          @relation("HrAssignedTo", fields: [hrAssignedToId], references: [id])
+  hrAssignedToId   String?
 
   building   Building @relation(fields: [buildingId], references: [id])
   buildingId String
+
+  // Denormalised province for pool routing / coverage lookups (derived from building on create).
+  province   Province? @relation(fields: [provinceId], references: [id])
+  provinceId String?
+
+  // For pool cases (safety/env/other): when the pickup SLA lapses (raise + 3 days).
+  pickupDueAt DateTime?
 
   department   Department? @relation(fields: [departmentId], references: [id])
   departmentId String?
@@ -201,6 +242,7 @@ model Incident {
 
   isActive  Boolean   @default(true)
   deletedAt DateTime?
+  annexureOne AnnexureOne?
 }
 
 model ImpactedPerson {
@@ -220,6 +262,7 @@ model IncidentMedia {
   id           String   @id @default(uuid())
   fileUrl      String
   fileType     String
+  fileName     String?
   uploaderRole String?
   uploadedBy   User?    @relation("MediaUploader", fields: [uploadedById], references: [id])
   uploadedById String?
@@ -717,5 +760,49 @@ model QuestionResponse {
   @@index([responseId])
   @@index([questionId])
   @@index([questionId, selectedOptionId])
+}
+
+model AnnexureOne {
+  id                            String   @id @default(uuid())
+  incidentId                    String   @unique
+  incident                      Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  
+  // Part A
+  employerName                  String?
+  affectedName                  String?
+  affectedIdNumber              String?
+  dateOfIncident                String?
+  timeOfIncident                String?
+  bodyPartsAffected             String?
+  effectOnPerson                String?
+  disablementPeriod             String?
+  occupationalDiseaseDesc       String?
+  machineProcess                String?
+  reportedToCommissioner        Boolean?
+  reportedToPolice              Boolean?
+  sapsOfficeRef                 String?
+
+  // Part B
+  investigatorName              String?
+  investigatorDesignation       String?
+  investigationDate             String?
+  incidentShortDesc             String?
+  suspectedCause                String?
+  recommendedSteps              String?
+  investigatorSignature         String?
+  investigatorSigDate           String?
+
+  // Part C
+  employerRemarks               String?
+  employerSignature             String?
+  employerSigDate               String?
+
+  // Part D
+  committeeRemarks              String?
+  committeeChairpersonSignature String?
+  committeeChairpersonSigDate   String?
+
+  createdAt                     DateTime @default(now())
+  updatedAt                     DateTime @updatedAt
 }
 

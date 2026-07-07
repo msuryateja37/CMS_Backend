@@ -67,6 +67,7 @@ async function main() {
 
     // Fetch roles
     const ohsRole = await prisma.role.findUnique({ where: { name: "OHS_PRACTITIONER" } });
+    const ohsNationalRole = await prisma.role.findUnique({ where: { name: "OHS_NATIONAL_OFFICE" } });
     const secRole = await prisma.role.findUnique({ where: { name: "SECURITY_PRACTITIONER" } });
     if (!ohsRole || !secRole) {
         console.error("❌ OHS_PRACTITIONER or SECURITY_PRACTITIONER role not found. Run the main seed first.");
@@ -88,6 +89,13 @@ async function main() {
         const province = dbProvinces.find(p => p.name === provinces[pIdx]);
         if (!province) continue;
 
+        const isSkipOHS = ['Eastern Cape', 'Northern Cape', 'North West'].includes(province.name);
+        if (isSkipOHS) {
+            console.log(`⚠️ Skipping OHS practitioner seeding for ${province.name} (handled by National Office)`);
+            continue;
+        }
+
+        const isNationalOffice = province.name === 'National Office';
         const abbrev = provinceAbbrev[province.name] || province.name.replace(/\s/g, "").toLowerCase().slice(0, 3);
 
         for (let i = 0; i < 4; i++) {
@@ -95,8 +103,8 @@ async function main() {
             const nameIdx = pIdx * 4 + i;
             const firstName = ohsFirstNames[nameIdx % ohsFirstNames.length];
             const lastName = lastNames[nameIdx % lastNames.length];
-            const fullName = `${firstName} ${lastName}`;
-            const email = `ohs.${firstName.toLowerCase()}.${lastName.toLowerCase()}.${abbrev}@dlrrd.gov.za`;
+            const fullName = isNationalOffice ? 'National Office (ASD OHS)' : `${firstName} ${lastName}`;
+            const email = isNationalOffice ? 'ohspractitioner.nationaloffice@dlrrd.gov.za' : `ohs.${firstName.toLowerCase()}.${lastName.toLowerCase()}.${abbrev}@dlrrd.gov.za`;
             const phone = `+27-${10 + pIdx}${i}-555-${String(empCounter).slice(-4)}`;
 
             const user = await prisma.user.upsert({
@@ -118,8 +126,9 @@ async function main() {
 
             // Assign OHS role
             try {
+                const assignedRoleId = (isNationalOffice && ohsNationalRole) ? ohsNationalRole.id : ohsRole.id;
                 await prisma.userRole.create({
-                    data: { userId: user.id, roleId: ohsRole.id },
+                    data: { userId: user.id, roleId: assignedRoleId },
                 });
             } catch (_e) {
                 // unique constraint — already assigned

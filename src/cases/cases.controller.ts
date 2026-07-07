@@ -57,7 +57,7 @@ export class CasesController {
     UserRole.MANAGER,
     UserRole.SYSTEM_ADMINISTRATOR,
     UserRole.OHS_PRACTITIONER,
-    UserRole.SECURITY_PRACTITIONER,
+    UserRole.FIRST_AIDER,
     UserRole.FINANCE_OFFICIAL,
   )
   @Post()
@@ -74,12 +74,14 @@ export class CasesController {
     UserRole.MANAGER,
     UserRole.SYSTEM_ADMINISTRATOR,
     UserRole.OHS_PRACTITIONER,
-    UserRole.SECURITY_PRACTITIONER,
+    UserRole.FIRST_AIDER,
+    UserRole.HR,
     UserRole.EMPLOYEE,
   )
   @Get()
-  async list(@Query() query: any) {
-    return this.cases.list(query);
+  async list(@Req() req: Request, @Query() query: any) {
+    const user = req.user as { sub: string } | undefined;
+    return this.cases.list(query, user?.sub);
   }
 
   // Get KPI Metrics
@@ -143,11 +145,10 @@ export class CasesController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(
-    UserRole.SUPERVISOR,
     UserRole.MANAGER,
     UserRole.SYSTEM_ADMINISTRATOR,
     UserRole.OHS_PRACTITIONER,
-    UserRole.SECURITY_PRACTITIONER,
+    UserRole.FIRST_AIDER,
   )
   @Get('sla/tracking')
   async getSlaTracking() {
@@ -166,10 +167,10 @@ export class CasesController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(
-    UserRole.SUPERVISOR,
     UserRole.MANAGER,
     UserRole.SYSTEM_ADMINISTRATOR,
     UserRole.OHS_PRACTITIONER,
+    UserRole.FIRST_AIDER,
   )
   @Put(':id')
   async update(@Req() req: Request, @Param('id') id: string, @Body() body: any) {
@@ -180,7 +181,7 @@ export class CasesController {
   // Assign Case (SUPERVISOR)
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.SUPERVISOR, UserRole.SYSTEM_ADMINISTRATOR, UserRole.MANAGER)
+  @Roles(UserRole.SYSTEM_ADMINISTRATOR, UserRole.MANAGER)
   @Put(':id/assign')
   async assign(
     @Req() req: Request,
@@ -191,15 +192,31 @@ export class CasesController {
     return this.cases.assign(id, body.assignedToId, user.sub);
   }
 
+  // Pick up a case from the province pool (OHS practitioner / first aider / hr)
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(
+    UserRole.OHS_PRACTITIONER,
+    UserRole.MANAGER,
+    UserRole.SYSTEM_ADMINISTRATOR,
+    UserRole.FIRST_AIDER,
+    UserRole.HR,
+  )
+  @Put(':id/pickup')
+  async pickup(@Req() req: Request, @Param('id') id: string) {
+    const user = req.user as { sub: string };
+    return this.cases.pickup(id, user.sub);
+  }
+
   // Update Case Status (SUPERVISOR, OHS, SECURITY)
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(
-    UserRole.SUPERVISOR,
     UserRole.SYSTEM_ADMINISTRATOR,
     UserRole.MANAGER,
     UserRole.OHS_PRACTITIONER,
-    UserRole.SECURITY_PRACTITIONER,
+    UserRole.FIRST_AIDER,
+    UserRole.HR,
   )
   @Put(':id/status')
   async updateStatus(
@@ -215,11 +232,10 @@ export class CasesController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(
-    UserRole.SUPERVISOR,
     UserRole.SYSTEM_ADMINISTRATOR,
     UserRole.MANAGER,
     UserRole.OHS_PRACTITIONER,
-    UserRole.SECURITY_PRACTITIONER,
+    UserRole.FIRST_AIDER,
   )
   @Put(':id/escalate')
   async escalate(
@@ -338,7 +354,6 @@ export class CasesController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(
-    UserRole.SUPERVISOR,
     UserRole.SYSTEM_ADMINISTRATOR,
     UserRole.MANAGER,
     UserRole.OHS_PRACTITIONER,
@@ -360,7 +375,6 @@ export class CasesController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(
-    UserRole.SUPERVISOR,
     UserRole.SYSTEM_ADMINISTRATOR,
     UserRole.MANAGER,
     UserRole.OHS_PRACTITIONER,
@@ -374,11 +388,11 @@ export class CasesController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(
-    UserRole.SUPERVISOR,
     UserRole.SYSTEM_ADMINISTRATOR,
     UserRole.MANAGER,
     UserRole.OHS_PRACTITIONER,
-    UserRole.SECURITY_PRACTITIONER,
+    UserRole.FIRST_AIDER,
+    UserRole.HR,
     UserRole.EMPLOYEE,
   )
   @Post(':id/comments')
@@ -411,11 +425,11 @@ export class CasesController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(
-    UserRole.SUPERVISOR,
     UserRole.SYSTEM_ADMINISTRATOR,
     UserRole.MANAGER,
     UserRole.OHS_PRACTITIONER,
-    UserRole.SECURITY_PRACTITIONER,
+    UserRole.FIRST_AIDER,
+    UserRole.HR,
     UserRole.EMPLOYEE,
   )
   @Post(':id/activity')
@@ -436,7 +450,12 @@ export class CasesController {
   // Close Case (MANAGER)
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.MANAGER, UserRole.SYSTEM_ADMINISTRATOR)
+  @Roles(
+    UserRole.MANAGER,
+    UserRole.SYSTEM_ADMINISTRATOR,
+    UserRole.OHS_PRACTITIONER,
+    UserRole.HR,
+  )
   @Put(':id/close')
   async close(@Req() req: Request, @Param('id') id: string) {
     const user = req.user as { sub: string };
@@ -450,5 +469,78 @@ export class CasesController {
   @Delete(':id')
   async delete(@Param('id') id: string) {
     return this.cases.softDelete(id);
+  }
+
+  // Get Annexure 1
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(
+    UserRole.SYSTEM_ADMINISTRATOR,
+    UserRole.MANAGER,
+    UserRole.OHS_PRACTITIONER,
+    UserRole.OHS_NATIONAL_OFFICE,
+    UserRole.FIRST_AIDER,
+    UserRole.HR,
+  )
+  @Get(':id/annexure1')
+  async getAnnexureOne(@Param('id') id: string) {
+    return this.cases.getAnnexureOne(id);
+  }
+
+  // Update Annexure 1
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(
+    UserRole.SYSTEM_ADMINISTRATOR,
+    UserRole.MANAGER,
+    UserRole.OHS_PRACTITIONER,
+    UserRole.OHS_NATIONAL_OFFICE,
+  )
+  @Put(':id/annexure1')
+  async updateAnnexureOne(@Param('id') id: string, @Body() body: any) {
+    return this.cases.updateAnnexureOne(id, body);
+  }
+
+  // Forward to OHS (First Aider)
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(
+    UserRole.SYSTEM_ADMINISTRATOR,
+    UserRole.FIRST_AIDER,
+  )
+  @Put(':id/forward-ohs')
+  async forwardToOhs(@Req() req: Request, @Param('id') id: string) {
+    const user = req.user as { sub: string };
+    return this.cases.forwardToOhs(id, user.sub);
+  }
+
+  // HR Pickup Incident
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(
+    UserRole.SYSTEM_ADMINISTRATOR,
+    UserRole.HR,
+  )
+  @Put(':id/hr-pickup')
+  async hrPickup(@Req() req: Request, @Param('id') id: string) {
+    const user = req.user as { sub: string };
+    return this.cases.hrPickup(id, user.sub);
+  }
+
+  // HR Update Status
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(
+    UserRole.SYSTEM_ADMINISTRATOR,
+    UserRole.HR,
+  )
+  @Put(':id/hr-status')
+  async hrUpdateStatus(
+    @Req() req: Request,
+    @Param('id') id: string,
+    @Body('hrStatus') hrStatus: string,
+  ) {
+    const user = req.user as { sub: string };
+    return this.cases.hrUpdateStatus(id, hrStatus, user.sub);
   }
 }
