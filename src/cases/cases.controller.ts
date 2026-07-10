@@ -455,6 +455,7 @@ export class CasesController {
     UserRole.SYSTEM_ADMINISTRATOR,
     UserRole.OHS_PRACTITIONER,
     UserRole.HR,
+    UserRole.FIRST_AIDER,
   )
   @Put(':id/close')
   async close(@Req() req: Request, @Param('id') id: string) {

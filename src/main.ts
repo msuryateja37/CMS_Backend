@@ -22,7 +22,7 @@ async function bootstrap() {
 
   const config = new DocumentBuilder()
     .setTitle('CMS API')
-    .setDescription('Integrated Case Management System (CMS) APIs')
+    .setDescription('Document Security Compliance and OHS Management System APIs')
     .setVersion('1.0')
     .addBearerAuth()
     .build();
