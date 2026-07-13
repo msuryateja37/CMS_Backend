@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Injectable,
+  ServiceUnavailableException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
@@ -14,6 +15,25 @@ export class AuthService {
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
   ) {}
+
+  private isDatabaseUnavailableError(error: unknown) {
+    return (
+      typeof error === 'object' &&
+      error !== null &&
+      'code' in error &&
+      (error as { code?: string }).code === 'P1001'
+    );
+  }
+
+  private handleDatabaseError(error: unknown): never {
+    if (this.isDatabaseUnavailableError(error)) {
+      throw new ServiceUnavailableException(
+        'Database is unavailable. Please try again later.',
+      );
+    }
+
+    throw error;
+  }
 
   private async signAccessToken(payload: {
     sub: string;
@@ -34,26 +54,32 @@ export class AuthService {
 
   async login(email: string, _password: string) {
     console.log(`Login attempt for email: ${email}`);
-    const user = await this.prisma.user.findUnique({
-      where: { email },
-      include: {
-        roles: {
-          include: {
-            role: true,
+    let user;
+
+    try {
+      user = await this.prisma.user.findUnique({
+        where: { email },
+        include: {
+          roles: {
+            include: {
+              role: true,
+            },
           },
-        },
-        department: {
-          include: {
-            building: {
-              include: {
-                province: true,
+          department: {
+            include: {
+              building: {
+                include: {
+                  province: true,
+                },
               },
             },
           },
+          province: true,
         },
-        province: true,
-      },
-    });
+      });
+    } catch (error) {
+      this.handleDatabaseError(error);
+    }
 
     if (!user) {
       console.log(`User not found: ${email}`);
@@ -161,47 +187,64 @@ export class AuthService {
       departmentId?: string;
     },
   ) {
-    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    let user;
+
+    try {
+      user = await this.prisma.user.findUnique({ where: { id: userId } });
+    } catch (error) {
+      this.handleDatabaseError(error);
+    }
+
     if (!user || !user.isActive) {
       throw new UnauthorizedException('User not found or inactive');
     }
 
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: {
-        ...(data.fullName !== undefined && { name: data.fullName }),
-        ...(data.phone !== undefined && { phone: data.phone }),
-        ...(data.provinceId !== undefined && { provinceId: data.provinceId }),
-        ...(data.departmentId !== undefined && {
-          departmentId: data.departmentId,
-        }),
-      },
-    });
+    try {
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: {
+          ...(data.fullName !== undefined && { name: data.fullName }),
+          ...(data.phone !== undefined && { phone: data.phone }),
+          ...(data.provinceId !== undefined && { provinceId: data.provinceId }),
+          ...(data.departmentId !== undefined && {
+            departmentId: data.departmentId,
+          }),
+        },
+      });
+    } catch (error) {
+      this.handleDatabaseError(error);
+    }
 
     return this.getCurrentUser(userId);
   }
 
   async getCurrentUser(userId: string) {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      include: {
-        roles: {
-          include: {
-            role: true,
+    let user;
+
+    try {
+      user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        include: {
+          roles: {
+            include: {
+              role: true,
+            },
           },
-        },
-        department: {
-          include: {
-            building: {
-              include: {
-                province: true,
+          department: {
+            include: {
+              building: {
+                include: {
+                  province: true,
+                },
               },
             },
           },
+          province: true,
         },
-        province: true,
-      },
-    });
+      });
+    } catch (error) {
+      this.handleDatabaseError(error);
+    }
 
     if (!user || !user.isActive) {
       throw new UnauthorizedException('User not found or inactive');
