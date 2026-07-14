@@ -109,10 +109,10 @@ export class OhsService {
     const [total, open, closed] = await Promise.all([
       this.prisma.incident.count({ where: { type: 'HAZARD' } }),
       this.prisma.incident.count({
-        where: { type: 'HAZARD', status: 'RAISED' },
+        where: { type: 'HAZARD', status: 'NEW' },
       }),
       this.prisma.incident.count({
-        where: { type: 'HAZARD', status: { in: ['COMPLETED', 'CLOSED'] } },
+        where: { type: 'HAZARD', status: 'CLOSED' },
       }),
     ]);
 

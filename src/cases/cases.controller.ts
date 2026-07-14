@@ -510,9 +510,13 @@ export class CasesController {
     UserRole.FIRST_AIDER,
   )
   @Put(':id/forward-ohs')
-  async forwardToOhs(@Req() req: Request, @Param('id') id: string) {
+  async forwardToOhs(
+    @Req() req: Request,
+    @Param('id') id: string,
+    @Body('treatmentData') treatmentData: any,
+  ) {
     const user = req.user as { sub: string };
-    return this.cases.forwardToOhs(id, user.sub);
+    return this.cases.forwardToOhs(id, user.sub, treatmentData);
   }
 
   // HR Pickup Incident
@@ -543,5 +547,49 @@ export class CasesController {
   ) {
     const user = req.user as { sub: string };
     return this.cases.hrUpdateStatus(id, hrStatus, user.sub);
+  }
+
+  // Get WCL Record
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(
+    UserRole.SYSTEM_ADMINISTRATOR,
+    UserRole.MANAGER,
+    UserRole.HR,
+    UserRole.EMPLOYEE,
+  )
+  @Get(':id/wcl')
+  async getWclRecord(@Param('id') id: string) {
+    return this.cases.getWclRecord(id);
+  }
+
+  // Update WCL Record
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(
+    UserRole.SYSTEM_ADMINISTRATOR,
+    UserRole.HR,
+    UserRole.EMPLOYEE,
+  )
+  @Put(':id/wcl')
+  async updateWclRecord(
+    @Req() req: Request,
+    @Param('id') id: string,
+    @Body() body: any,
+  ) {
+    const user = req.user as { sub: string } | undefined;
+    return this.cases.updateWclRecord(id, body, user?.sub);
+  }
+
+  // Download WCL PDF
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Get(':id/wcl/pdf')
+  async downloadWclPdf(@Param('id') id: string, @Req() req: any) {
+    const buffer = await this.cases.generateWclPdf(id);
+    const res = req.res;
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=WCL_Form_${id}.pdf`);
+    res.send(buffer);
   }
 }

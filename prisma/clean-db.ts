@@ -17,6 +17,8 @@ async function main() {
   try { await prisma.approval.deleteMany(); } catch(e) {}
   try { await prisma.incidentSLATracking.deleteMany(); } catch(e) {}
   try { await prisma.impactedPerson.deleteMany(); } catch(e) {}
+  try { await prisma.wclRecord.deleteMany(); } catch(e) {}
+  try { await prisma.annexureOne.deleteMany(); } catch(e) {}
   try { await prisma.incident.deleteMany(); } catch(e) {}
 
   console.log('✅ Database incidents cleared successfully!');

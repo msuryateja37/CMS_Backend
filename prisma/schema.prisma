@@ -12,19 +12,16 @@ datasource db {
 //////////////////////////////////////////////////////
 
 enum IncidentStatus {
-  RAISED
-  POOL
-  FA_ASSIGNED
-  FORWARDED_TO_OHS_AND_HR
-  UNDER_REVIEW
-  REJECTED
+  NEW
+  UNASSIGNED
   ASSIGNED
-  INVESTIGATION_IN_PROGRESS
-  TASK_IN_PROGRESS
-  WAITING_APPROVAL
-  ESCALATED_TO_ADMIN
-  COMPLETED
-  REOPENED
+  UNDER_FIRST_AIDED
+  REFERRED_TO_OHS_AND_HR
+  ASSIGNED_TO_OHS
+  UNDER_INVESTIGATION
+  UNDER_PSSC_RECOMMENDATION
+  UNDER_DEP_DIRECTOR_RECOMMENDATION
+  DIRECTOR_APPROVAL
   CLOSED
 }
 
@@ -196,7 +193,7 @@ model Incident {
   impact           String?
   location         String?        // Location description
   peopleImpacted   Int?           // Number of people impacted
-  status           IncidentStatus @default(RAISED)
+  status           IncidentStatus @default(NEW)
   hrStatus         String?        // HR_UNASSIGNED, HR_ASSIGNED, HR_UNDER_REVIEW, HR_APPROVED
   hrAssignedTo     User?          @relation("HrAssignedTo", fields: [hrAssignedToId], references: [id])
   hrAssignedToId   String?
@@ -243,6 +240,12 @@ model Incident {
   isActive  Boolean   @default(true)
   deletedAt DateTime?
   annexureOne AnnexureOne?
+  wclRecord WclRecord?
+
+  treatmentAdministered String?
+  treatmentOutcome      String?
+  treatmentReferral     String?
+  treatmentReason       String?
 }
 
 model ImpactedPerson {
@@ -801,6 +804,78 @@ model AnnexureOne {
   committeeRemarks              String?
   committeeChairpersonSignature String?
   committeeChairpersonSigDate   String?
+
+  createdAt                     DateTime @default(now())
+  updatedAt                     DateTime @updatedAt
+}
+
+model WclRecord {
+  id                            String   @id @default(uuid())
+  incidentId                    String   @unique
+  incident                      Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  wclReference                  String?
+  completedFormUrl              String?  // Completed WCL Form file url
+  
+  // Employer section
+  employerName                  String?
+  employerRegNumber             String?
+  employerContactPerson         String?
+  employerAddress               String?
+  employerTel                   String?
+  employerFax                   String?
+  employerEmail                 String?
+  employerSituation             String?
+  employerNatureOfBusiness      String?
+
+  // Employee section
+  employeeSurname               String?
+  employeeFirstNames            String?
+  employeeIdNumber              String?
+  employeeDob                   String?
+  employeeSex                   String?
+  employeeMaritalState          String?
+  employeeCitizenship           String?
+  employeePersonnelNo           String?
+  employeeAddress               String?
+  employeeOccupation            String?
+  employeePeriodInEmploy        String?
+  employeeWorkingDirector       String?
+
+  // Occupational Disease section
+  diseaseNature                 String?
+  diseaseDateDiagnosed          String?
+  diseaseAllegedCause           String?
+  diseaseExposurePeriod         String?
+  diseaseDateReported           String?
+  diseasePrevEmployer           String?
+  diseaseWorkOtherEmployer      String?
+
+  // Other Particulars section
+  earningsGross                 String?
+  earningsBonuses               String?
+  earningsAllowances            String?
+  earningsFood                  String?
+  earningsQuarters              String?
+  earningsGrossWeek             String?
+  earningsGrossMonth            String?
+  earningsBonusesWeek           String?
+  earningsBonusesMonth          String?
+  earningsAllowancesWeek        String?
+  earningsAllowancesMonth       String?
+  earningsFoodWeek              String?
+  earningsFoodMonth             String?
+  earningsQuartersWeek          String?
+  earningsQuartersMonth         String?
+  continueFreeFood              String?
+  continueFreeQuarters          String?
+  prepCashPayments              String?
+  totalCashPaid                 String?
+  cashPaymentPeriod             String?
+  dateCeasedWork                String?
+  dateResumedWork               String?
+  prevCompensation              String?
+  deliberateNonCompliance       String?
+  deliberateDisregard           String?
 
   createdAt                     DateTime @default(now())
   updatedAt                     DateTime @updatedAt

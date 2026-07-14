@@ -207,7 +207,7 @@ export class UsersService {
           where: {
             incident: {
               status: {
-                notIn: ['CLOSED', 'COMPLETED'],
+                notIn: ['CLOSED'],
               },
             },
           },
