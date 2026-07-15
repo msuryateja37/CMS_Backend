@@ -23,13 +23,12 @@ async function main() {
     console.log("🗑️ Case-related tables cleared!");
 
     // 2. Fetch the reporting employee
-    const employeeEmail = "employee@dlrrd.gov.za";
-    let employee = await prisma.user.findUnique({
-        where: { email: employeeEmail },
+    let employee = await prisma.user.findFirst({
+        where: { email: { startsWith: "employee" } },
     });
 
     if (!employee) {
-        throw new Error(`Employee user ${employeeEmail} not found. Please ensure core seeds have run.`);
+        throw new Error(`No employee user found. Please ensure core seeds have run.`);
     }
 
     // Ensure employee has department and province set
@@ -53,14 +52,14 @@ async function main() {
         throw new Error("No buildings found in the database. Please seed buildings first.");
     }
 
-    const ohsPractitioner = await prisma.user.findUnique({
-        where: { email: "ohs.practitioner@dlrrd.gov.za" },
+    const ohsPractitioner = await prisma.user.findFirst({
+        where: { email: { startsWith: "ohspractitioner" } },
     });
-    const thandiNkosi = await prisma.user.findUnique({
-        where: { email: "thandi.nkosi@dlrrd.gov.za" },
-    });
-    const supervisor = await prisma.user.findUnique({
-        where: { email: "supervisor@dlrrd.gov.za" },
+    const thandiNkosi = await prisma.user.findFirst({
+        where: { email: { contains: "free" } }, // Free State practitioner
+    }) || ohsPractitioner;
+    const supervisor = await prisma.user.findFirst({
+        where: { email: { startsWith: "supervisor" } },
     });
 
     // 4. Define Case Data (10 highly realistic incidents)
@@ -69,7 +68,7 @@ async function main() {
             incidentNumber: "INC-10001",
             category: "safety",
             severity: "medium",
-            status: IncidentStatus.RAISED,
+            status: IncidentStatus.NEW,
             description: "An employee slipped and fell near the main entrance lobby due to a wet floor that had no warning signage posted by the cleaning staff.",
             location: "Main Entrance Lobby, Ground Floor",
             peopleImpacted: 1,
@@ -102,7 +101,7 @@ async function main() {
             incidentNumber: "INC-10003",
             category: "environmental",
             severity: "high",
-            status: IncidentStatus.INVESTIGATION_IN_PROGRESS,
+            status: IncidentStatus.UNDER_INVESTIGATION,
             description: "Multiple containers of industrial cleaning agents and solvents were found stored upright but unsecured on top-tier shelves, violating liquid storage safety protocols.",
             location: "Facilities Chemical Store, Basement",
             peopleImpacted: 0,
@@ -118,7 +117,7 @@ async function main() {
             incidentNumber: "INC-10004",
             category: "security",
             severity: "high",
-            status: IncidentStatus.UNDER_REVIEW,
+            status: IncidentStatus.UNDER_PSSC_RECOMMENDATION,
             description: "An external contractor was found browsing files in the restricted land deeds records archive without an escort or authorization badge.",
             location: "Land Deeds Archive Room, 1st Floor",
             peopleImpacted: 0,
@@ -134,7 +133,7 @@ async function main() {
             incidentNumber: "INC-10005",
             category: "safety",
             severity: "critical",
-            status: IncidentStatus.RAISED,
+            status: IncidentStatus.NEW,
             description: "The main breaker panel cover in the corridor adjacent to the training room was left hanging open, exposing live 220V wires within reach of passersby.",
             location: "East Wing Corridor, 2nd Floor",
             peopleImpacted: 0,
@@ -165,7 +164,7 @@ async function main() {
             incidentNumber: "INC-10007",
             category: "safety",
             severity: "critical",
-            status: IncidentStatus.TASK_IN_PROGRESS,
+            status: IncidentStatus.UNDER_INVESTIGATION,
             description: "The push-bar panic latch on the northern emergency escape stairwell door is cracked and does not open when pressure is applied, blockading a key egress route.",
             location: "Northern Fire Escape Stairwell, Ground Floor",
             peopleImpacted: 0,
@@ -181,7 +180,7 @@ async function main() {
             incidentNumber: "INC-10008",
             category: "health",
             severity: "medium",
-            status: IncidentStatus.COMPLETED,
+            status: IncidentStatus.CLOSED,
             description: "Strong chemical odors and toxic fumes from floor varnishing in the adjacent office caused three employees to experience dizziness, nausea, and headaches.",
             location: "Open Plan Office Cubicles, 3rd Floor",
             peopleImpacted: 3,
@@ -276,12 +275,12 @@ async function main() {
             });
         }
 
-        // Add Initial RAISED Status Log
+        // Add Initial NEW Status Log
         await prisma.incidentStatusLog.create({
             data: {
                 incidentId: incident.id,
-                newStatus: IncidentStatus.RAISED,
-                oldStatus: IncidentStatus.RAISED,
+                newStatus: IncidentStatus.NEW,
+                oldStatus: IncidentStatus.NEW,
                 comments: "Initial incident reported by employee.",
                 userId: employee.id,
                 changedAt: occurredAt,
@@ -307,7 +306,7 @@ async function main() {
                 data: {
                     incidentId: incident.id,
                     newStatus: IncidentStatus.ASSIGNED,
-                    oldStatus: IncidentStatus.RAISED,
+                    oldStatus: IncidentStatus.NEW,
                     comments: `Assigned to ${item.assignee.name} for OHS investigation.`,
                     userId: assignedBy,
                     changedAt: occurredAt,
@@ -325,8 +324,8 @@ async function main() {
             });
 
             // Seed Corrective Actions for active/completed cases
-            if (item.status === IncidentStatus.TASK_IN_PROGRESS || item.status === IncidentStatus.COMPLETED || item.status === IncidentStatus.CLOSED) {
-                const actionStatus = item.status === IncidentStatus.TASK_IN_PROGRESS ? "in_progress" : "completed";
+            if (item.status === IncidentStatus.UNDER_INVESTIGATION || item.status === IncidentStatus.CLOSED) {
+                const actionStatus = item.status === IncidentStatus.UNDER_INVESTIGATION ? "in_progress" : "completed";
                 const completedAt = actionStatus === "completed" ? new Date() : null;
                 
                 await prisma.correctiveAction.create({
@@ -343,40 +342,28 @@ async function main() {
         }
 
         // Add additional transition logs for completed/closed cases
-        if (item.status === IncidentStatus.UNDER_REVIEW) {
+        if (item.status === IncidentStatus.UNDER_PSSC_RECOMMENDATION) {
             await prisma.incidentStatusLog.create({
                 data: {
                     incidentId: incident.id,
-                    newStatus: IncidentStatus.UNDER_REVIEW,
+                    newStatus: IncidentStatus.UNDER_PSSC_RECOMMENDATION,
                     oldStatus: IncidentStatus.ASSIGNED,
                     comments: "Investigation report submitted. Awaiting supervisor review.",
                     userId: item.assignee?.id || employee.id,
                 },
             });
-        } else if (item.status === IncidentStatus.COMPLETED || item.status === IncidentStatus.CLOSED) {
+        } else if (item.status === IncidentStatus.CLOSED) {
             const resolverId = item.assignee?.id || employee.id;
             
             await prisma.incidentStatusLog.create({
                 data: {
                     incidentId: incident.id,
-                    newStatus: IncidentStatus.COMPLETED,
+                    newStatus: IncidentStatus.CLOSED,
                     oldStatus: IncidentStatus.ASSIGNED,
-                    comments: "Resolution actions completed and validated.",
+                    comments: "Resolution actions completed, validated, and case officially closed.",
                     userId: resolverId,
                 },
             });
-
-            if (item.status === IncidentStatus.CLOSED) {
-                await prisma.incidentStatusLog.create({
-                    data: {
-                        incidentId: incident.id,
-                        newStatus: IncidentStatus.CLOSED,
-                        oldStatus: IncidentStatus.COMPLETED,
-                        comments: "Case officially closed in the system.",
-                        userId: supervisor?.id || employee.id,
-                    },
-                });
-            }
         }
     }
 

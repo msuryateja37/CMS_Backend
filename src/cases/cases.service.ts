@@ -7,6 +7,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../system/storage.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { IncidentStatus, CoverageFunction } from '@prisma/client';
+import PDFDocument from 'pdfkit';
 
 @Injectable()
 export class CasesService {
@@ -50,10 +51,11 @@ export class CasesService {
     });
     const provinceId: string | null = body.provinceId ?? buildingRow?.provinceId ?? null;
 
-    // Route by category: health -> province first aider; everything else -> province OHS pool.
+    // Route by category: safety & health -> 4h SLA (first aider); everything else -> 24h SLA (OHS pool).
     const category = (body.categoryId ?? 'others').toString().toLowerCase();
+    const isSafetyOrHealth = category === 'health' || category === 'safety';
     const isHealth = category === 'health';
-    const routing = await this.routeIncident(isHealth, provinceId);
+    const routing = await this.routeIncident(isSafetyOrHealth, provinceId);
 
     const incidentNumber = body.caseNumber ?? `INC-${Date.now()}`;
 
@@ -135,16 +137,16 @@ export class CasesService {
     });
 
     // Log the incident creation
-    await this.addActivity(incident.id, 'RAISED', 'Incident created', userId);
+    await this.addActivity(incident.id, 'NEW', 'Incident created', userId);
 
     // Routing side-effects: assign to province pool or escalate to admin.
     if (routing.poolOhsId) {
       await this.addActivity(
         incident.id,
-        'POOL',
+        'NEW',
         isHealth
           ? 'Added to province First Aider pool (waiting for self-assignment)'
-          : 'Added to province OHS pool (pick up within 3 days)',
+          : 'Added to province OHS pool',
         userId,
       );
       await this.notifications.create(
@@ -152,15 +154,15 @@ export class CasesService {
         isHealth ? 'New Health Case in Your Pool' : 'New Case in Your Pool',
         isHealth
           ? `Case ${incidentNumber} (health) is waiting in your province pool. Please pick it up to assist.`
-          : `Case ${incidentNumber} is waiting in your province pool. Pick it up within 3 days or it escalates to the administrator.`,
+          : `Case ${incidentNumber} is waiting in your province pool.`,
         'cases',
         incident.id,
       );
     } else {
       await this.addActivity(
         incident.id,
-        'ESCALATED_TO_ADMIN',
-        `No ${isHealth ? 'first aider' : 'OHS practitioner'} in this province — escalated to administrator`,
+        'NEW',
+        `No ${isHealth ? 'first aider' : 'OHS practitioner'} in this province`,
         userId,
       );
       await this.notifyAdmins(
@@ -225,7 +227,7 @@ export class CasesService {
 
   /** Decide where a newly-raised incident goes based on category + province coverage. */
   private async routeIncident(
-    isHealth: boolean,
+    isSafetyOrHealth: boolean,
     provinceId: string | null,
   ): Promise<{
     status: IncidentStatus;
@@ -233,58 +235,27 @@ export class CasesService {
     assigneeId: string | null;
     poolOhsId: string | null;
   }> {
-    if (isHealth) {
-      const cover = provinceId
-        ? await this.prisma.provinceAssignment.findUnique({
-            where: {
-              provinceId_function: {
-                provinceId,
-                function: CoverageFunction.FIRST_AIDER,
-              },
-            },
-            select: { userId: true },
-          })
-        : null;
-      if (cover?.userId) {
-        return {
-          status: IncidentStatus.POOL,
-          pickupDueAt: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
-          assigneeId: null,
-          poolOhsId: cover.userId,
-        };
-      }
-      return {
-        status: IncidentStatus.ESCALATED_TO_ADMIN,
-        pickupDueAt: null,
-        assigneeId: null,
-        poolOhsId: null,
-      };
-    }
+    const slaHours = isSafetyOrHealth ? 4 : 24;
+    const pickupDueAt = new Date(Date.now() + slaHours * 60 * 60 * 1000);
 
+    const func = isSafetyOrHealth ? CoverageFunction.FIRST_AIDER : CoverageFunction.OHS_PRACTITIONER;
     const cover = provinceId
       ? await this.prisma.provinceAssignment.findUnique({
           where: {
             provinceId_function: {
               provinceId,
-              function: CoverageFunction.OHS_PRACTITIONER,
+              function: func,
             },
           },
           select: { userId: true },
         })
       : null;
-    if (cover?.userId) {
-      return {
-        status: IncidentStatus.POOL,
-        pickupDueAt: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
-        assigneeId: null,
-        poolOhsId: cover.userId,
-      };
-    }
+
     return {
-      status: IncidentStatus.ESCALATED_TO_ADMIN,
-      pickupDueAt: null,
+      status: IncidentStatus.NEW,
+      pickupDueAt,
       assigneeId: null,
-      poolOhsId: null,
+      poolOhsId: cover?.userId || null,
     };
   }
 
@@ -306,27 +277,32 @@ export class CasesService {
   }
 
   /**
-   * Sweep pool cases whose 3-day pickup window has lapsed and escalate them to
-   * the administrator. Called lazily whenever case lists are read (no scheduler).
+   * Sweep new cases whose pickup window has lapsed and transition them to UNASSIGNED.
+   * Called lazily whenever case lists are read.
    */
-  async escalateOverduePoolCases(): Promise<void> {
+  async updateOverdueNewCases(): Promise<void> {
     const overdue = await this.prisma.incident.findMany({
-      where: { status: IncidentStatus.POOL, pickupDueAt: { lt: new Date() } },
-      select: { id: true, incidentNumber: true },
+      where: { status: IncidentStatus.NEW, pickupDueAt: { lt: new Date() } },
+      select: { id: true, incidentNumber: true, reportedById: true },
     });
     for (const inc of overdue) {
       await this.prisma.incident.update({
         where: { id: inc.id },
-        data: { status: IncidentStatus.ESCALATED_TO_ADMIN },
+        data: { status: IncidentStatus.UNASSIGNED },
       });
-      await this.notifyAdmins(
-        `Pool case ${inc.incidentNumber} was not picked up within 3 days and has been escalated to you.`,
-        inc.id,
-      );
+      await this.prisma.incidentStatusLog.create({
+        data: {
+          incidentId: inc.id,
+          newStatus: IncidentStatus.UNASSIGNED,
+          oldStatus: IncidentStatus.NEW,
+          comments: 'Case transitioned to UNASSIGNED as it was not picked up within SLA period.',
+          userId: inc.reportedById,
+        },
+      });
     }
   }
 
-  /** OHS practitioner pulls a case out of their province pool. */
+  /** OHS practitioner or First Aider pulls a case out of their province pool. */
   async pickup(id: string, userId: string) {
     const incident = await this.prisma.incident.findUnique({
       where: { id },
@@ -341,9 +317,13 @@ export class CasesService {
     const roles = user?.roles.map(r => r.role.name.toUpperCase()) || [];
     const isFirstAider = roles.includes('FIRST_AIDER');
 
-    const allowedStatuses: IncidentStatus[] = [IncidentStatus.POOL, IncidentStatus.FORWARDED_TO_OHS_AND_HR];
+    const allowedStatuses: IncidentStatus[] = [
+      IncidentStatus.NEW,
+      IncidentStatus.UNASSIGNED,
+      IncidentStatus.REFERRED_TO_OHS_AND_HR,
+    ];
     if (!allowedStatuses.includes(incident.status)) {
-      throw new BadRequestException('Only cases in the pool or forwarded status can be picked up');
+      throw new BadRequestException('Only cases in the new, unassigned, or referred status can be picked up');
     }
 
     await this.prisma.incidentAssignment.create({
@@ -351,8 +331,8 @@ export class CasesService {
     });
 
     let targetStatus: IncidentStatus = IncidentStatus.ASSIGNED;
-    if (isFirstAider && incident.category?.toLowerCase() === 'health') {
-      targetStatus = IncidentStatus.FA_ASSIGNED;
+    if (incident.status === IncidentStatus.REFERRED_TO_OHS_AND_HR) {
+      targetStatus = IncidentStatus.ASSIGNED_TO_OHS;
     }
 
     await this.prisma.incident.update({
@@ -360,13 +340,18 @@ export class CasesService {
       data: { status: targetStatus, pickupDueAt: null },
     });
 
-    await this.addActivity(id, targetStatus, `Picked up by ${isFirstAider ? 'First Aider' : 'OHS Practitioner'}`, userId);
+    await this.addActivity(
+      id,
+      targetStatus,
+      `Picked up by ${isFirstAider ? 'First Aider' : 'OHS Practitioner'}`,
+      userId,
+    );
     return this.getById(id);
   }
 
   async list(query: any, currentUserId?: string) {
-    // Lazily escalate any pool cases that blew their 3-day pickup window.
-    await this.escalateOverduePoolCases();
+    // Lazily update any new cases that blew their SLA pickup window.
+    await this.updateOverdueNewCases();
     const where: any = {};
 
     if (currentUserId) {
@@ -409,10 +394,7 @@ export class CasesService {
     }
 
     if (query.hrFlow === 'true') {
-      where.category = { equals: 'health', mode: 'insensitive' };
-      where.status = {
-        in: ['FORWARDED_TO_OHS_AND_HR', 'ASSIGNED', 'INVESTIGATION_IN_PROGRESS', 'WAITING_APPROVAL', 'CLOSED'],
-      };
+      where.hrStatus = { not: null };
     } else if (query.status) {
       if (typeof query.status === 'string' && query.status.includes(',')) {
         where.status = { in: query.status.split(',').map((s: string) => s.trim()) };
@@ -609,6 +591,10 @@ export class CasesService {
     if (body.buildingId) updateData.buildingId = body.buildingId;
     if (body.departmentId) updateData.departmentId = body.departmentId;
     if (body.incidentPlan !== undefined) updateData.incidentPlan = body.incidentPlan;
+    if (body.treatmentAdministered !== undefined) updateData.treatmentAdministered = body.treatmentAdministered;
+    if (body.treatmentOutcome !== undefined) updateData.treatmentOutcome = body.treatmentOutcome;
+    if (body.treatmentReferral !== undefined) updateData.treatmentReferral = body.treatmentReferral;
+    if (body.treatmentReason !== undefined) updateData.treatmentReason = body.treatmentReason;
 
     const incident = await this.prisma.incident.update({
       where: { id },
@@ -1004,8 +990,8 @@ export class CasesService {
   ) {
     if (!changedById) return;
 
-    // Try to map status to IncidentStatus enum, fallback to RAISED if invalid
-    let newStatus: IncidentStatus = IncidentStatus.RAISED;
+    // Try to map status to IncidentStatus enum, fallback to NEW if invalid
+    let newStatus: IncidentStatus = IncidentStatus.NEW;
 
     // Convert string status to Enum if it matches
     const statusUpper =
@@ -1025,7 +1011,7 @@ export class CasesService {
       data: {
         incidentId,
         newStatus: newStatus,
-        oldStatus: incident?.status || IncidentStatus.RAISED,
+        oldStatus: incident?.status || IncidentStatus.NEW,
         comments: comments || '',
         userId: changedById,
       },
@@ -1487,7 +1473,7 @@ export class CasesService {
     });
   }
 
-  async forwardToOhs(id: string, userId: string) {
+  async forwardToOhs(id: string, userId: string, treatmentData?: any) {
     const incident = await this.prisma.incident.findUnique({
       where: { id },
       include: { reportedBy: true },
@@ -1496,11 +1482,12 @@ export class CasesService {
     const updated = await this.prisma.incident.update({
       where: { id },
       data: {
-        status: IncidentStatus.FORWARDED_TO_OHS_AND_HR,
+        status: IncidentStatus.REFERRED_TO_OHS_AND_HR,
         hrStatus: 'HR_UNASSIGNED',
-        assignments: {
-          deleteMany: {}, // Clear current assignment to First Aider
-        },
+        treatmentAdministered: treatmentData?.treatmentAdministered || undefined,
+        treatmentOutcome: treatmentData?.treatmentOutcome || undefined,
+        treatmentReferral: treatmentData?.treatmentReferral || undefined,
+        treatmentReason: treatmentData?.treatmentReason || undefined,
       },
     });
 
@@ -1517,8 +1504,8 @@ export class CasesService {
 
     await this.addActivity(
       id,
-      'FORWARDED_TO_OHS_AND_HR',
-      'Forwarded to OHS & HR (Hospitalized)',
+      'REFERRED_TO_OHS_AND_HR',
+      'Referred to OHS & HR (Hospitalized)',
       userId,
     );
 
@@ -1572,7 +1559,168 @@ export class CasesService {
         hrStatus,
       },
     });
+
+    if (hrStatus === 'WCL_ISSUED') {
+      await this.prisma.wclRecord.upsert({
+        where: { incidentId: id },
+        create: { incidentId: id },
+        update: {},
+      });
+    }
+
     await this.addActivity(id, 'UNDER_REVIEW', `HR status updated to ${hrStatus}`, userId);
     return this.getById(id);
+  }
+
+  async getWclRecord(incidentId: string) {
+    const record = await this.prisma.wclRecord.findUnique({
+      where: { incidentId },
+    });
+    
+    const generateWclRef = () => {
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const day = String(now.getDate()).padStart(2, '0');
+      const suffix = Math.floor(1000 + Math.random() * 9000);
+      return `WCL-${year}${month}${day}-${suffix}`;
+    };
+
+    if (!record) {
+      const wclReference = generateWclRef();
+      return this.prisma.wclRecord.create({
+        data: { 
+          incidentId,
+          wclReference,
+        },
+      });
+    }
+
+    if (!record.wclReference) {
+      const wclReference = generateWclRef();
+      return this.prisma.wclRecord.update({
+        where: { incidentId },
+        data: { wclReference },
+      });
+    }
+
+    return record;
+  }
+
+  async updateWclRecord(incidentId: string, data: any, userId?: string) {
+    const { id, incidentId: _, createdAt, updatedAt, ...updateData } = data;
+    const result = await this.prisma.wclRecord.upsert({
+      where: { incidentId },
+      create: { ...updateData, incidentId },
+      update: updateData,
+    });
+
+    const incident = await this.prisma.incident.findUnique({
+      where: { id: incidentId },
+    });
+    if (incident && incident.hrStatus === 'WCL_ISSUED') {
+      await this.prisma.incident.update({
+        where: { id: incidentId },
+        data: { hrStatus: 'WCL_PROCESSED' },
+      });
+      if (userId) {
+        await this.appendIncidentTimeline(
+          incidentId,
+          userId,
+          'WCL_PROCESSED',
+          "Employee completed and submitted WCL Form.",
+        );
+      }
+    }
+    return result;
+  }
+
+  async generateWclPdf(incidentId: string): Promise<Buffer> {
+    const wcl = await this.prisma.wclRecord.findUnique({
+      where: { incidentId },
+      include: { incident: { include: { reportedBy: true } } },
+    });
+    if (!wcl) throw new NotFoundException('WCL Record not found for this incident');
+
+    return new Promise((resolve, reject) => {
+      const doc = new PDFDocument({ size: 'A4', margin: 40 });
+      const buffers: Buffer[] = [];
+      doc.on('data', buffers.push.bind(buffers));
+      doc.on('end', () => {
+        resolve(Buffer.concat(buffers));
+      });
+      doc.on('error', (err) => {
+        reject(err);
+      });
+
+      // Write title
+      doc.font('Helvetica-Bold').fontSize(16).text('WCL1 FORM - WORKMEN\'S COMPENSATION', { align: 'center' });
+      doc.moveDown(1.5);
+
+      // Section 1: Employer Details
+      doc.font('Helvetica-Bold').fontSize(12).text('1. EMPLOYER DETAILS', { underline: true });
+      doc.font('Helvetica').fontSize(10);
+      doc.text(`Registered Name: ${wcl.employerName || 'N/A'}`);
+      doc.text(`Registered Number: ${wcl.employerRegNumber || 'N/A'}`);
+      doc.text(`Contact Person: ${wcl.employerContactPerson || 'N/A'}`);
+      doc.text(`Street Address: ${wcl.employerAddress || 'N/A'}`);
+      doc.text(`Telephone: ${wcl.employerTel || 'N/A'}`);
+      doc.text(`Fax: ${wcl.employerFax || 'N/A'}`);
+      doc.text(`Email: ${wcl.employerEmail || 'N/A'}`);
+      doc.text(`Situation of Business/Farm: ${wcl.employerSituation || 'N/A'}`);
+      doc.text(`Nature of Business: ${wcl.employerNatureOfBusiness || 'N/A'}`);
+      doc.moveDown(1.5);
+
+      // Section 2: Employee Details
+      doc.font('Helvetica-Bold').fontSize(12).text('2. EMPLOYEE DETAILS', { underline: true });
+      doc.font('Helvetica').fontSize(10);
+      doc.text(`Surname: ${wcl.employeeSurname || 'N/A'}`);
+      doc.text(`First Names: ${wcl.employeeFirstNames || 'N/A'}`);
+      doc.text(`ID Number: ${wcl.employeeIdNumber || 'N/A'}`);
+      doc.text(`Date of Birth: ${wcl.employeeDob || 'N/A'}`);
+      doc.text(`Sex: ${wcl.employeeSex || 'N/A'}`);
+      doc.text(`Marital State: ${wcl.employeeMaritalState || 'N/A'}`);
+      doc.text(`Citizenship: ${wcl.employeeCitizenship || 'N/A'}`);
+      doc.text(`Personnel Number: ${wcl.employeePersonnelNo || 'N/A'}`);
+      doc.text(`Occupation: ${wcl.employeeOccupation || 'N/A'}`);
+      doc.text(`Street Address: ${wcl.employeeAddress || 'N/A'}`);
+      doc.text(`Period in Employ: ${wcl.employeePeriodInEmploy || 'N/A'}`);
+      doc.text(`Working Director / CC Member / Owner?: ${wcl.employeeWorkingDirector || 'N/A'}`);
+      doc.moveDown(1.5);
+
+      // Section 3: Occupational Disease Details
+      doc.font('Helvetica-Bold').fontSize(12).text('3. OCCUPATIONAL DISEASE DETAILS', { underline: true });
+      doc.font('Helvetica').fontSize(10);
+      doc.text(`Nature of Disease: ${wcl.diseaseNature || 'N/A'}`);
+      doc.text(`Date Diagnosed: ${wcl.diseaseDateDiagnosed || 'N/A'}`);
+      doc.text(`Alleged Cause of Disease: ${wcl.diseaseAllegedCause || 'N/A'}`);
+      doc.text(`Exposure Period: ${wcl.diseaseExposurePeriod || 'N/A'}`);
+      doc.text(`Date Employee Reported Disease: ${wcl.diseaseDateReported || 'N/A'}`);
+      doc.text(`Previous Employer (if applicable): ${wcl.diseasePrevEmployer || 'N/A'}`);
+      doc.text(`Work Performed with Other Employer: ${wcl.diseaseWorkOtherEmployer || 'N/A'}`);
+      doc.moveDown(1.5);
+
+      // Section 4: Other Particulars
+      doc.font('Helvetica-Bold').fontSize(12).text('4. OTHER PARTICULARS', { underline: true });
+      doc.font('Helvetica').fontSize(10);
+      doc.text('Earnings at Time of Diagnosis:');
+      doc.text(`  - Gross Cash Earnings: Week: R ${wcl.earningsGrossWeek || '0.00'} | Month: R ${wcl.earningsGrossMonth || '0.00'}`);
+      doc.text(`  - Bonuses: Week: R ${wcl.earningsBonusesWeek || '0.00'} | Month: R ${wcl.earningsBonusesMonth || '0.00'}`);
+      doc.text(`  - Other Allowances: Week: R ${wcl.earningsAllowancesWeek || '0.00'} | Month: R ${wcl.earningsAllowancesMonth || '0.00'}`);
+      doc.text(`  - Cash Value of Food: Week: R ${wcl.earningsFoodWeek || '0.00'} | Month: R ${wcl.earningsFoodMonth || '0.00'}`);
+      doc.text(`  - Cash Value of Free Quarters: Week: R ${wcl.earningsQuartersWeek || '0.00'} | Month: R ${wcl.earningsQuartersMonth || '0.00'}`);
+      doc.text(`Continue Free Food during disablement?: ${wcl.continueFreeFood || 'N/A'}`);
+      doc.text(`Continue Free Quarters during disablement?: ${wcl.continueFreeQuarters || 'N/A'}`);
+      doc.text(`Prepared to make Cash Payments (>3 Months)?: ${wcl.prepCashPayments || 'N/A'}`);
+      doc.text(`Total Cash Already Paid: R ${wcl.totalCashPaid || '0.00'}`);
+      doc.text(`Cash Payment Period: ${wcl.cashPaymentPeriod || 'N/A'}`);
+      doc.text(`Date Employee Ceased Work: ${wcl.dateCeasedWork || 'N/A'}`);
+      doc.text(`Date Employee Resumed Work: ${wcl.dateResumedWork || 'N/A'}`);
+      doc.text(`Previous Compensation (same/other disease/accident): ${wcl.prevCompensation || 'N/A'}`);
+      doc.text(`Deliberate Non-Compliance of Directions?: ${wcl.deliberateNonCompliance || 'N/A'}`);
+      doc.text(`Deliberate Disregard of Safety Laws?: ${wcl.deliberateDisregard || 'N/A'}`);
+
+      doc.end();
+    });
   }
 }
