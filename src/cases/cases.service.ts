@@ -363,6 +363,7 @@ export class CasesService {
               role: true,
             },
           },
+          province: true,
         },
       });
       const roles = callingUser?.roles.map(r => r.role.name.toLowerCase().replace(/_/g, ' ').replace(/\s+/g, ' ').trim()) || [];
@@ -370,6 +371,9 @@ export class CasesService {
       const isOhsPractitioner = roles.includes('ohs practitioner');
       const isOhsNationalOffice = roles.includes('ohs national office');
       const isFirstAider = roles.includes('first aider');
+      const isPsscCoordinator = roles.includes('pssc coordinator');
+      const isDeputyDirector = roles.includes('deputy director');
+      const isNationalOffice = callingUser?.province?.name === 'National Office';
 
       if (isSupervisor) {
         const provId = callingUser?.provinceId;
@@ -386,6 +390,11 @@ export class CasesService {
           where.provinceId = provId;
         }
       } else if (isFirstAider) {
+        const provId = callingUser?.provinceId;
+        if (provId) {
+          where.provinceId = provId;
+        }
+      } else if ((isPsscCoordinator || isDeputyDirector) && !isNationalOffice) {
         const provId = callingUser?.provinceId;
         if (provId) {
           where.provinceId = provId;

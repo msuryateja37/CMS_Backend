@@ -74,9 +74,12 @@ export class CasesController {
     UserRole.MANAGER,
     UserRole.SYSTEM_ADMINISTRATOR,
     UserRole.OHS_PRACTITIONER,
+    UserRole.OHS_NATIONAL_OFFICE,
     UserRole.FIRST_AIDER,
     UserRole.HR,
     UserRole.EMPLOYEE,
+    UserRole.PSSC_COORDINATOR,
+    UserRole.DEPUTY_DIRECTOR,
   )
   @Get()
   async list(@Req() req: Request, @Query() query: any) {
@@ -215,8 +218,11 @@ export class CasesController {
     UserRole.SYSTEM_ADMINISTRATOR,
     UserRole.MANAGER,
     UserRole.OHS_PRACTITIONER,
+    UserRole.OHS_NATIONAL_OFFICE,
     UserRole.FIRST_AIDER,
     UserRole.HR,
+    UserRole.PSSC_COORDINATOR,
+    UserRole.DEPUTY_DIRECTOR,
   )
   @Put(':id/status')
   async updateStatus(

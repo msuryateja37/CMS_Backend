@@ -86,6 +86,8 @@ async function main() {
         "SYSTEM_ADMINISTRATOR",
         "FIRST_AIDER",
         "HR",
+        "PSSC_COORDINATOR",
+        "DEPUTY_DIRECTOR",
     ];
 
     const roles: any = {};
@@ -143,6 +145,8 @@ async function main() {
             { role: "SUPERVISOR", prefix: "supervisor" },
             { role: "FIRST_AIDER", prefix: "firstaider" },
             { role: "HR", prefix: "hr" },
+            { role: "PSSC_COORDINATOR", prefix: "pssccoordinator" },
+            { role: "DEPUTY_DIRECTOR", prefix: "deputydirector" },
         ];
 
         if (province.name === 'National Office') {
