@@ -142,6 +142,7 @@ model User {
   formsCreated         Form[]               @relation("FormCreator")
   provinceCoverage     ProvinceAssignment[] @relation("ProvinceCoverage")
   hrAssignedIncidents  Incident[]           @relation("HrAssignedTo")
+  dressingRegistries   DressingRegistry[]   @relation("TreatedBy")
 }
 
 model Role {
@@ -241,11 +242,14 @@ model Incident {
   deletedAt DateTime?
   annexureOne AnnexureOne?
   wclRecord WclRecord?
+  dressingRegistry DressingRegistry?
 
   treatmentAdministered String?
   treatmentOutcome      String?
   treatmentReferral     String?
   treatmentReason       String?
+  natureOfInjury        String?
+  bodyPartAffected      String?
 }
 
 model ImpactedPerson {
@@ -763,6 +767,23 @@ model QuestionResponse {
   @@index([responseId])
   @@index([questionId])
   @@index([questionId, selectedOptionId])
+}
+
+model DressingRegistry {
+  id                String    @id @default(uuid())
+  officeName        String
+  date              DateTime
+  time              String
+  name              String    // Patient's full name
+  natureOfInjury    String
+  treatmentRendered String
+  treatedById       String
+  treatedBy         User      @relation("TreatedBy", fields: [treatedById], references: [id])
+  dateResumedWork   DateTime?
+  incidentId        String?   @unique
+  incident          Incident? @relation(fields: [incidentId], references: [id])
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 }
 
 model AnnexureOne {

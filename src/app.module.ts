@@ -21,6 +21,7 @@ import { OperationsModule } from './operations/operations.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { FormsModule } from './forms/forms.module';
 import { OcrModule } from './ocr.module';
+import { DressingRegistryModule } from './dressing-registry/dressing-registry.module';
 
 @Module({
   imports: [
@@ -43,6 +44,7 @@ import { OcrModule } from './ocr.module';
     NotificationsModule,
     FormsModule,
     OcrModule,
+    DressingRegistryModule,
   ],
   controllers: [AppController],
   providers: [AppService],

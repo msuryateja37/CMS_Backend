@@ -12,6 +12,9 @@ export class NotificationsService {
     module: string,
     referenceId?: string,
   ) {
+    // Disabled as per user request to turn off notifications
+    return null;
+    /*
     return this.prisma.notification.create({
       data: {
         userId,
@@ -21,20 +24,15 @@ export class NotificationsService {
         referenceId: referenceId ?? null,
       },
     });
+    */
   }
 
   async getForUser(userId: string, take = 50) {
-    return this.prisma.notification.findMany({
-      where: { userId },
-      orderBy: { createdAt: 'desc' },
-      take,
-    });
+    return [];
   }
 
   async getUnreadCount(userId: string) {
-    return this.prisma.notification.count({
-      where: { userId, isRead: false },
-    });
+    return 0;
   }
 
   async markAsRead(notificationId: string, userId: string) {

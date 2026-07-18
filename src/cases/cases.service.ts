@@ -86,6 +86,8 @@ export class CasesService {
           ? JSON.stringify(body.immediateActions)
           : null,
         otherActions: body.otherActions,
+        natureOfInjury: body.natureOfInjury,
+        bodyPartAffected: body.bodyPartAffected,
         peopleImpacted: body.peopleImpacted ?? body.impactedPeople?.length ?? 0,
         impactedPeople:
           body.impactedPeople && body.impactedPeople.length > 0
