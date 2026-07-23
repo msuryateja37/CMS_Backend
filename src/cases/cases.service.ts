@@ -51,11 +51,12 @@ export class CasesService {
     });
     const provinceId: string | null = body.provinceId ?? buildingRow?.provinceId ?? null;
 
-    // Route by category: safety & health -> 4h SLA (first aider); everything else -> 24h SLA (OHS pool).
+    // Route by category: safety & health -> First Aider (4h); others -> Facilities Co
+    // Coordinator (24h); everything else -> OHS pool (24h).
     const category = (body.categoryId ?? 'others').toString().toLowerCase();
-    const isSafetyOrHealth = category === 'health' || category === 'safety';
     const isHealth = category === 'health';
-    const routing = await this.routeIncident(isSafetyOrHealth, provinceId);
+    const isOthers = category === 'others';
+    const routing = await this.routeIncident(category, provinceId);
 
     const incidentNumber = body.caseNumber ?? `INC-${Date.now()}`;
 
@@ -142,18 +143,33 @@ export class CasesService {
     await this.addActivity(incident.id, 'NEW', 'Incident created', userId);
 
     // Routing side-effects: assign to province pool or escalate to admin.
+    const poolLabel = isHealth
+      ? 'First Aider'
+      : isOthers
+        ? 'Facilities Co Coordinator'
+        : 'OHS';
+    const coverLabel = isHealth
+      ? 'first aider'
+      : isOthers
+        ? 'facilities co coordinator'
+        : 'OHS practitioner';
+
     if (routing.poolOhsId) {
       await this.addActivity(
         incident.id,
         'NEW',
         isHealth
           ? 'Added to province First Aider pool (waiting for self-assignment)'
-          : 'Added to province OHS pool',
+          : `Added to province ${poolLabel} pool`,
         userId,
       );
       await this.notifications.create(
         routing.poolOhsId,
-        isHealth ? 'New Health Case in Your Pool' : 'New Case in Your Pool',
+        isHealth
+          ? 'New Health Case in Your Pool'
+          : isOthers
+            ? 'New Facilities Case in Your Pool'
+            : 'New Case in Your Pool',
         isHealth
           ? `Case ${incidentNumber} (health) is waiting in your province pool. Please pick it up to assist.`
           : `Case ${incidentNumber} is waiting in your province pool.`,
@@ -164,11 +180,11 @@ export class CasesService {
       await this.addActivity(
         incident.id,
         'NEW',
-        `No ${isHealth ? 'first aider' : 'OHS practitioner'} in this province`,
+        `No ${coverLabel} in this province`,
         userId,
       );
       await this.notifyAdmins(
-        `Case ${incidentNumber} has no ${isHealth ? 'first aider' : 'OHS practitioner'} in its province and needs administrator assignment.`,
+        `Case ${incidentNumber} has no ${coverLabel} in its province and needs administrator assignment.`,
         incident.id,
       );
     }
@@ -227,9 +243,14 @@ export class CasesService {
     return incident;
   }
 
-  /** Decide where a newly-raised incident goes based on category + province coverage. */
+  /**
+   * Decide where a newly-raised incident goes based on category + province coverage.
+   *  - safety / health  -> First Aider pool (4h SLA)
+   *  - others           -> Facilities Co Coordinator pool (24h SLA)
+   *  - everything else   -> OHS Practitioner pool (24h SLA)
+   */
   private async routeIncident(
-    isSafetyOrHealth: boolean,
+    category: string,
     provinceId: string | null,
   ): Promise<{
     status: IncidentStatus;
@@ -237,27 +258,49 @@ export class CasesService {
     assigneeId: string | null;
     poolOhsId: string | null;
   }> {
+    const isSafetyOrHealth = category === 'health' || category === 'safety';
+    const isOthers = category === 'others';
     const slaHours = isSafetyOrHealth ? 4 : 24;
     const pickupDueAt = new Date(Date.now() + slaHours * 60 * 60 * 1000);
 
-    const func = isSafetyOrHealth ? CoverageFunction.FIRST_AIDER : CoverageFunction.OHS_PRACTITIONER;
-    const cover = provinceId
-      ? await this.prisma.provinceAssignment.findUnique({
-          where: {
-            provinceId_function: {
+    let poolUserId: string | null = null;
+
+    if (isOthers) {
+      // "Other" category incidents are handled by the province Facilities Co Coordinator.
+      const facilities = provinceId
+        ? await this.prisma.user.findFirst({
+            where: {
               provinceId,
-              function: func,
+              isActive: true,
+              roles: { some: { role: { name: 'FACILITIES_COORDINATOR' } } },
             },
-          },
-          select: { userId: true },
-        })
-      : null;
+            select: { id: true },
+          })
+        : null;
+      poolUserId = facilities?.id || null;
+    } else {
+      const func = isSafetyOrHealth
+        ? CoverageFunction.FIRST_AIDER
+        : CoverageFunction.OHS_PRACTITIONER;
+      const cover = provinceId
+        ? await this.prisma.provinceAssignment.findUnique({
+            where: {
+              provinceId_function: {
+                provinceId,
+                function: func,
+              },
+            },
+            select: { userId: true },
+          })
+        : null;
+      poolUserId = cover?.userId || null;
+    }
 
     return {
       status: IncidentStatus.NEW,
       pickupDueAt,
       assigneeId: null,
-      poolOhsId: cover?.userId || null,
+      poolOhsId: poolUserId,
     };
   }
 
@@ -391,6 +434,13 @@ export class CasesService {
         const provId = callingUser?.provinceId;
         if (provId) {
           where.provinceId = provId;
+          // Split the province pool by category: the Facilities Co Coordinator
+          // handles "Other" category incidents, the OHS Practitioner handles the rest.
+          if (isFacilitiesCoordinator) {
+            where.category = { equals: 'others', mode: 'insensitive' };
+          } else {
+            where.category = { not: 'others', mode: 'insensitive' };
+          }
         }
       } else if (isFirstAider) {
         const provId = callingUser?.provinceId;
