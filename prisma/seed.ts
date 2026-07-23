@@ -88,6 +88,7 @@ async function main() {
         "HR",
         "PSSC_COORDINATOR",
         "DEPUTY_DIRECTOR",
+        "CHIEF_DIRECTOR",
     ];
 
     const roles: any = {};
@@ -151,6 +152,7 @@ async function main() {
 
         if (province.name === 'National Office') {
             ssoRoles.push({ role: "OHS_NATIONAL_OFFICE", prefix: "ohspractitioner" });
+            ssoRoles.push({ role: "CHIEF_DIRECTOR", prefix: "chiefdirector" });
         } else if (!['Eastern Cape', 'Northern Cape', 'North West'].includes(province.name)) {
             ssoRoles.push({ role: "OHS_PRACTITIONER", prefix: "ohspractitioner" });
         }
