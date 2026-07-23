@@ -375,6 +375,7 @@ export class CasesService {
       const isFirstAider = roles.includes('first aider');
       const isPsscCoordinator = roles.includes('pssc coordinator');
       const isDeputyDirector = roles.includes('deputy director');
+      const isFacilitiesCoordinator = roles.includes('facilities coordinator');
       const isNationalOffice = callingUser?.province?.name === 'National Office';
 
       if (isSupervisor) {
@@ -386,7 +387,7 @@ export class CasesService {
             { provinceId: provId }
           ];
         }
-      } else if (isOhsPractitioner && !isOhsNationalOffice) {
+      } else if ((isOhsPractitioner || isFacilitiesCoordinator) && !isOhsNationalOffice) {
         const provId = callingUser?.provinceId;
         if (provId) {
           where.provinceId = provId;

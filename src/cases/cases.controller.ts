@@ -57,6 +57,7 @@ export class CasesController {
     UserRole.MANAGER,
     UserRole.SYSTEM_ADMINISTRATOR,
     UserRole.OHS_PRACTITIONER,
+    UserRole.FACILITIES_COORDINATOR,
     UserRole.FIRST_AIDER,
     UserRole.FINANCE_OFFICIAL,
   )
@@ -74,6 +75,7 @@ export class CasesController {
     UserRole.MANAGER,
     UserRole.SYSTEM_ADMINISTRATOR,
     UserRole.OHS_PRACTITIONER,
+    UserRole.FACILITIES_COORDINATOR,
     UserRole.OHS_NATIONAL_OFFICE,
     UserRole.FIRST_AIDER,
     UserRole.HR,
@@ -151,6 +153,7 @@ export class CasesController {
     UserRole.MANAGER,
     UserRole.SYSTEM_ADMINISTRATOR,
     UserRole.OHS_PRACTITIONER,
+    UserRole.FACILITIES_COORDINATOR,
     UserRole.FIRST_AIDER,
   )
   @Get('sla/tracking')
@@ -173,6 +176,7 @@ export class CasesController {
     UserRole.MANAGER,
     UserRole.SYSTEM_ADMINISTRATOR,
     UserRole.OHS_PRACTITIONER,
+    UserRole.FACILITIES_COORDINATOR,
     UserRole.FIRST_AIDER,
   )
   @Put(':id')
@@ -200,6 +204,7 @@ export class CasesController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(
     UserRole.OHS_PRACTITIONER,
+    UserRole.FACILITIES_COORDINATOR,
     UserRole.MANAGER,
     UserRole.SYSTEM_ADMINISTRATOR,
     UserRole.FIRST_AIDER,
@@ -218,6 +223,7 @@ export class CasesController {
     UserRole.SYSTEM_ADMINISTRATOR,
     UserRole.MANAGER,
     UserRole.OHS_PRACTITIONER,
+    UserRole.FACILITIES_COORDINATOR,
     UserRole.OHS_NATIONAL_OFFICE,
     UserRole.FIRST_AIDER,
     UserRole.HR,
@@ -241,6 +247,7 @@ export class CasesController {
     UserRole.SYSTEM_ADMINISTRATOR,
     UserRole.MANAGER,
     UserRole.OHS_PRACTITIONER,
+    UserRole.FACILITIES_COORDINATOR,
     UserRole.FIRST_AIDER,
   )
   @Put(':id/escalate')
@@ -363,6 +370,7 @@ export class CasesController {
     UserRole.SYSTEM_ADMINISTRATOR,
     UserRole.MANAGER,
     UserRole.OHS_PRACTITIONER,
+    UserRole.FACILITIES_COORDINATOR,
   )
   @Post(':id/escalation-config')
   async createEscalationConfig(@Param('id') id: string, @Body() body: any) {
@@ -384,6 +392,7 @@ export class CasesController {
     UserRole.SYSTEM_ADMINISTRATOR,
     UserRole.MANAGER,
     UserRole.OHS_PRACTITIONER,
+    UserRole.FACILITIES_COORDINATOR,
   )
   @Put(':id/escalation-config')
   async updateEscalationConfig(@Param('id') id: string, @Body() body: any) {
@@ -397,6 +406,7 @@ export class CasesController {
     UserRole.SYSTEM_ADMINISTRATOR,
     UserRole.MANAGER,
     UserRole.OHS_PRACTITIONER,
+    UserRole.FACILITIES_COORDINATOR,
     UserRole.FIRST_AIDER,
     UserRole.HR,
     UserRole.EMPLOYEE,
@@ -434,6 +444,7 @@ export class CasesController {
     UserRole.SYSTEM_ADMINISTRATOR,
     UserRole.MANAGER,
     UserRole.OHS_PRACTITIONER,
+    UserRole.FACILITIES_COORDINATOR,
     UserRole.FIRST_AIDER,
     UserRole.HR,
     UserRole.EMPLOYEE,
@@ -460,6 +471,7 @@ export class CasesController {
     UserRole.MANAGER,
     UserRole.SYSTEM_ADMINISTRATOR,
     UserRole.OHS_PRACTITIONER,
+    UserRole.FACILITIES_COORDINATOR,
     UserRole.HR,
     UserRole.FIRST_AIDER,
   )
@@ -485,6 +497,7 @@ export class CasesController {
     UserRole.SYSTEM_ADMINISTRATOR,
     UserRole.MANAGER,
     UserRole.OHS_PRACTITIONER,
+    UserRole.FACILITIES_COORDINATOR,
     UserRole.OHS_NATIONAL_OFFICE,
     UserRole.FIRST_AIDER,
     UserRole.HR,
@@ -501,6 +514,7 @@ export class CasesController {
     UserRole.SYSTEM_ADMINISTRATOR,
     UserRole.MANAGER,
     UserRole.OHS_PRACTITIONER,
+    UserRole.FACILITIES_COORDINATOR,
     UserRole.OHS_NATIONAL_OFFICE,
   )
   @Put(':id/annexure1')
