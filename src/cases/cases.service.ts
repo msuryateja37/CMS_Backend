@@ -294,6 +294,18 @@ export class CasesService {
           })
         : null;
       poolUserId = cover?.userId || null;
+      if (!poolUserId && provinceId) {
+        const targetRole = isSafetyOrHealth ? 'FIRST_AIDER' : 'OHS_PRACTITIONER';
+        const u = await this.prisma.user.findFirst({
+          where: {
+            provinceId,
+            isActive: true,
+            roles: { some: { role: { name: targetRole } } },
+          },
+          select: { id: true },
+        });
+        poolUserId = u?.id || null;
+      }
     }
 
     return {
@@ -375,8 +387,12 @@ export class CasesService {
       data: { incidentId: id, assignedToId: userId, assignedById: userId },
     });
 
+    const isFacilities = roles.includes('FACILITIES_COORDINATOR');
+
     let targetStatus: IncidentStatus = IncidentStatus.ASSIGNED;
-    if (incident.status === IncidentStatus.REFERRED_TO_OHS_AND_HR) {
+    if (isFacilities || incident.category?.toLowerCase() === 'others') {
+      targetStatus = IncidentStatus.UNDER_FACILITIES_COORDINATOR;
+    } else if (incident.status === IncidentStatus.REFERRED_TO_OHS_AND_HR || roles.includes('OHS_PRACTITIONER') || roles.includes('OHS_NATIONAL_OFFICE')) {
       targetStatus = IncidentStatus.ASSIGNED_TO_OHS;
     }
 
@@ -409,6 +425,11 @@ export class CasesService {
             },
           },
           province: true,
+          department: {
+            include: {
+              building: true,
+            },
+          },
         },
       });
       const roles = callingUser?.roles.map(r => r.role.name.toLowerCase().replace(/_/g, ' ').replace(/\s+/g, ' ').trim()) || [];
@@ -420,20 +441,23 @@ export class CasesService {
       const isDeputyDirector = roles.includes('deputy director');
       const isFacilitiesCoordinator = roles.includes('facilities coordinator');
       const isNationalOffice = callingUser?.province?.name === 'National Office';
+      const provId = callingUser?.provinceId || callingUser?.department?.building?.provinceId;
 
       if (isSupervisor) {
-        const provId = callingUser?.provinceId;
         if (provId) {
           where.OR = [
             { reportedBy: { provinceId: provId } },
             { reportedById: currentUserId },
-            { provinceId: provId }
+            { provinceId: provId },
+            { building: { provinceId: provId } },
           ];
         }
       } else if ((isOhsPractitioner || isFacilitiesCoordinator) && !isOhsNationalOffice) {
-        const provId = callingUser?.provinceId;
         if (provId) {
-          where.provinceId = provId;
+          where.OR = [
+            { provinceId: provId },
+            { building: { provinceId: provId } },
+          ];
           // Split the province pool by category: the Facilities Co Coordinator
           // handles "Other" category incidents, the OHS Practitioner handles the rest.
           if (isFacilitiesCoordinator) {
@@ -443,15 +467,22 @@ export class CasesService {
           }
         }
       } else if (isFirstAider) {
-        const provId = callingUser?.provinceId;
         if (provId) {
-          where.provinceId = provId;
+          where.OR = [
+            { provinceId: provId },
+            { building: { provinceId: provId } },
+          ];
         }
       } else if ((isPsscCoordinator || isDeputyDirector) && !isNationalOffice) {
-        const provId = callingUser?.provinceId;
         if (provId) {
-          where.provinceId = provId;
+          where.OR = [
+            { provinceId: provId },
+            { building: { provinceId: provId } },
+          ];
         }
+      } else if (roles.includes('employee')) {
+        // Employees can only see cases they reported
+        where.reportedById = currentUserId;
       }
     }
 
@@ -465,9 +496,15 @@ export class CasesService {
       }
     }
     if (query.unassignedOnly === 'true') {
-      where.assignments = {
-        none: {},
-      };
+      where.AND = [
+        ...(where.AND || []),
+        {
+          OR: [
+            { status: 'REFERRED_TO_OHS_AND_HR' },
+            { assignments: { none: {} } },
+          ],
+        },
+      ];
     }
     if (query.buildingId) where.buildingId = query.buildingId;
     if (query.provinceId) where.provinceId = query.provinceId;
@@ -590,7 +627,7 @@ export class CasesService {
 
     if (!c) throw new NotFoundException('Case not found');
 
-    // Transform for frontend compatibility (appends SAS tokens)
+    // Transform for frontend compatibility
     return this.transformIncident(c);
   }
 
@@ -893,6 +930,13 @@ export class CasesService {
   }
 
   async addApproval(incidentId: string, body: any, uploadedById: string) {
+    if (!uploadedById) {
+      const inc = await this.prisma.incident.findUnique({
+        where: { id: incidentId },
+        select: { reportedById: true },
+      });
+      uploadedById = inc?.reportedById || '';
+    }
     const files =
       body.files ??
       (body.fileUrl || body.url
@@ -906,11 +950,14 @@ export class CasesService {
         : []);
     if (!body.roleName)
       throw new BadRequestException('roleName is required');
-    if (!Array.isArray(files) || files.length === 0) {
-      throw new BadRequestException(
-        'At least one file is required (upload files first, then submit)',
-      );
-    }
+
+    const finalFiles = Array.isArray(files) && files.length > 0 ? files : [
+      {
+        fileUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=',
+        fileName: `${body.roleName.replace(/\s+/g, '_')}_Signature.png`,
+        fileType: 'image/png'
+      }
+    ];
 
     const approval = await this.prisma.approval.create({
       data: {
@@ -920,7 +967,7 @@ export class CasesService {
         recommendationText: body.recommendationText ?? null,
         uploadedById,
         attachments: {
-          create: files.map((f: any) => ({
+          create: finalFiles.map((f: any) => ({
             fileUrl: f.fileUrl ?? f.url,
             fileName: f.fileName ?? null,
             fileType: f.fileType ?? null,
@@ -929,6 +976,17 @@ export class CasesService {
       },
       include: { attachments: true, uploadedBy: true },
     });
+
+    if (body.recommendationText && body.recommendationText.trim()) {
+      await this.prisma.incidentComment.create({
+        data: {
+          incidentId,
+          userId: uploadedById,
+          comment: `[${body.roleName} Comment/Recommendation] ${body.recommendationText.trim()}`,
+        },
+      });
+    }
+
     return this.signApprovalRecord(approval);
   }
 

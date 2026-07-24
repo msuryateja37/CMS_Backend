@@ -9,13 +9,14 @@ import {
   Put,
   Query,
   Req,
+  Res,
   UseGuards,
   UseInterceptors,
   UploadedFile,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
-import type { Request } from 'express';
+import type { Request, Response } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
@@ -82,6 +83,7 @@ export class CasesController {
     UserRole.EMPLOYEE,
     UserRole.PSSC_COORDINATOR,
     UserRole.DEPUTY_DIRECTOR,
+    UserRole.CHIEF_DIRECTOR,
   )
   @Get()
   async list(@Req() req: Request, @Query() query: any) {
@@ -229,6 +231,7 @@ export class CasesController {
     UserRole.HR,
     UserRole.PSSC_COORDINATOR,
     UserRole.DEPUTY_DIRECTOR,
+    UserRole.CHIEF_DIRECTOR,
   )
   @Put(':id/status')
   async updateStatus(
@@ -312,8 +315,9 @@ export class CasesController {
     @Param('id') id: string,
     @Body() body: any,
   ) {
-    const user = req.user as { sub: string };
-    return this.cases.addApproval(id, body, user.sub);
+    const user = req.user as any;
+    const userId = user?.sub || user?.id || user?.userId;
+    return this.cases.addApproval(id, body, userId);
   }
 
   @ApiBearerAuth()
@@ -605,9 +609,8 @@ export class CasesController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
   @Get(':id/wcl/pdf')
-  async downloadWclPdf(@Param('id') id: string, @Req() req: any) {
+  async downloadWclPdf(@Param('id') id: string, @Res() res: Response) {
     const buffer = await this.cases.generateWclPdf(id);
-    const res = req.res;
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=WCL_Form_${id}.pdf`);
     res.send(buffer);

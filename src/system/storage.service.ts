@@ -69,10 +69,10 @@ export class StorageService {
       // Usually we store the path or a clean URL.
       const url = blockBlobClient.url.split('?')[0];
       return url;
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error(
-        `Error uploading file to Azure: ${error.message}`,
-        error.stack,
+        `Error uploading file to Azure: ${error?.message || error}`,
+        error?.stack,
       );
       throw error;
     }
@@ -90,8 +90,8 @@ export class StorageService {
 
       const blockBlobClient = this.containerClient.getBlockBlobClient(blobName);
       await blockBlobClient.deleteIfExists();
-    } catch (error) {
-      this.logger.error(`Error deleting file from Azure: ${error.message}`);
+    } catch (error: any) {
+      this.logger.error(`Error deleting file from Azure: ${error?.message || error}`);
     }
   }
 
@@ -99,10 +99,10 @@ export class StorageService {
    * Appends the SAS token to a direct blob URL if it doesn't already have one.
    */
   getAuthenticatedUrl(fileUrl: string): string {
-    if (!fileUrl) return fileUrl;
+    if (!fileUrl || fileUrl.startsWith('data:') || fileUrl.includes('?')) return fileUrl;
 
     const sasToken = this.configService.get<string>('SAS_TOKEN');
-    if (!sasToken || fileUrl.includes('?')) return fileUrl;
+    if (!sasToken) return fileUrl;
 
     // Ensure SAS token starts with ? if it doesn't
     const token =

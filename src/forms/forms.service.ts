@@ -453,17 +453,15 @@ export class FormsService {
   // ── Analytics: answer distribution per question ───────────────────────────
 
   async getQuestionAnalytics(questionId: string) {
-    const [textAnswers, optionCounts] = await this.prisma.$transaction([
-      this.prisma.questionResponse.count({
-        where: { questionId, answerText: { not: null } },
-      }),
-      this.prisma.questionResponse.groupBy({
-        by: ['selectedOptionId'],
-        where: { questionId, selectedOptionId: { not: null } },
-        _count: { selectedOptionId: true },
-        orderBy: { selectedOptionId: 'asc' },
-      }),
-    ]);
+    const textAnswers = await this.prisma.questionResponse.count({
+      where: { questionId, answerText: { not: null } },
+    });
+    const optionCounts = await (this.prisma.questionResponse.groupBy as any)({
+      by: ['selectedOptionId'],
+      where: { questionId, selectedOptionId: { not: null } },
+      _count: { selectedOptionId: true },
+      orderBy: { selectedOptionId: 'asc' },
+    });
     return { questionId, textAnswers, optionCounts };
   }
 
