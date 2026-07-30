@@ -226,6 +226,40 @@ async function main() {
             longitude: 28.1890,
             assignee: ohsPractitioner,
         },
+        {
+            incidentNumber: "INC-10011",
+            category: "safety",
+            severity: "critical",
+            status: IncidentStatus.DIRECTOR_APPROVAL,
+            description: "Structural collapse of main entrance concrete balustrade following heavy storms. Poses severe safety hazard to all entering personnel and requires urgent structural remediation funding approval.",
+            location: "Main Building Entrance Plaza, Gauteng",
+            peopleImpacted: 2,
+            impactedPersonName: "Sipho Mabaso",
+            impactedPersonEmail: "sipho.mabaso@dlrrd.gov.za",
+            occurredAtDaysAgo: 2,
+            immediateActions: ["cordoned", "area_secured"],
+            otherActions: "Plaza entry cordoned off with high-visibility safety barriers; secondary access door opened.",
+            impact: "High risk of collapse injury. Building entry restricted.",
+            latitude: -25.7461,
+            longitude: 28.1881,
+            assignee: ohsPractitioner,
+        },
+        {
+            incidentNumber: "INC-10012",
+            category: "environmental",
+            severity: "high",
+            status: IncidentStatus.DIRECTOR_APPROVAL,
+            description: "Underground fuel storage tank seepage detected during quarterly environmental audit. Soil remediation and containment protocol recommended by Deputy Director.",
+            location: "Sub-level Fuel Storage Vault, Gauteng",
+            peopleImpacted: 0,
+            occurredAtDaysAgo: 3,
+            immediateActions: ["isolated_source", "contain_spill"],
+            otherActions: "Fuel line shut down and secondary containment bund activated.",
+            impact: "Requires immediate executive approval for environmental hazmat contractor engagement.",
+            latitude: -26.2041,
+            longitude: 28.0473,
+            assignee: ohsPractitioner,
+        },
     ];
 
     console.log(`🚀 Seeding ${casesToSeed.length} cases...`);
@@ -350,6 +384,44 @@ async function main() {
                     oldStatus: IncidentStatus.ASSIGNED,
                     comments: "Investigation report submitted. Awaiting supervisor review.",
                     userId: item.assignee?.id || employee.id,
+                },
+            });
+        } else if (item.status === IncidentStatus.DIRECTOR_APPROVAL) {
+            await prisma.incidentStatusLog.create({
+                data: {
+                    incidentId: incident.id,
+                    newStatus: IncidentStatus.DIRECTOR_APPROVAL,
+                    oldStatus: IncidentStatus.UNDER_DEP_DIRECTOR_RECOMMENDATION,
+                    comments: "Submitted to Chief Director for final approval.",
+                    userId: employee.id,
+                },
+            });
+
+            // Seed OHS Practitioner, PSSC, and Deputy Director recommendations
+            await prisma.approval.create({
+                data: {
+                    incidentId: incident.id,
+                    roleName: "OHS Practitioner",
+                    recommenderName: "T. Dlamini",
+                    recommendationText: "Full structural/hazmat inspection completed. Urgent executive authorization recommended.",
+                },
+            });
+
+            await prisma.approval.create({
+                data: {
+                    incidentId: incident.id,
+                    roleName: "PSSC Coordinator",
+                    recommenderName: "Gauteng Pssc Coordinator",
+                    recommendationText: "Reviewed and endorsed. Emergency remediation required for provincial compliance.",
+                },
+            });
+
+            await prisma.approval.create({
+                data: {
+                    incidentId: incident.id,
+                    roleName: "Deputy Director",
+                    recommenderName: "Gauteng Deputy Director",
+                    recommendationText: "Recommending Chief Director approval and immediate execution of corrective works.",
                 },
             });
         } else if (item.status === IncidentStatus.CLOSED) {

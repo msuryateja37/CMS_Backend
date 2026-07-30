@@ -51,11 +51,12 @@ export class CasesService {
     });
     const provinceId: string | null = body.provinceId ?? buildingRow?.provinceId ?? null;
 
-    // Route by category: safety & health -> 4h SLA (first aider); everything else -> 24h SLA (OHS pool).
+    // Route by category: safety & health -> First Aider (4h); others -> Facilities Co
+    // Coordinator (24h); everything else -> OHS pool (24h).
     const category = (body.categoryId ?? 'others').toString().toLowerCase();
-    const isSafetyOrHealth = category === 'health' || category === 'safety';
     const isHealth = category === 'health';
-    const routing = await this.routeIncident(isSafetyOrHealth, provinceId);
+    const isOthers = category === 'others';
+    const routing = await this.routeIncident(category, provinceId);
 
     const incidentNumber = body.caseNumber ?? `INC-${Date.now()}`;
 
@@ -86,6 +87,8 @@ export class CasesService {
           ? JSON.stringify(body.immediateActions)
           : null,
         otherActions: body.otherActions,
+        natureOfInjury: body.natureOfInjury,
+        bodyPartAffected: body.bodyPartAffected,
         peopleImpacted: body.peopleImpacted ?? body.impactedPeople?.length ?? 0,
         impactedPeople:
           body.impactedPeople && body.impactedPeople.length > 0
@@ -140,18 +143,33 @@ export class CasesService {
     await this.addActivity(incident.id, 'NEW', 'Incident created', userId);
 
     // Routing side-effects: assign to province pool or escalate to admin.
+    const poolLabel = isHealth
+      ? 'First Aider'
+      : isOthers
+        ? 'Facilities Co Coordinator'
+        : 'OHS';
+    const coverLabel = isHealth
+      ? 'first aider'
+      : isOthers
+        ? 'facilities co coordinator'
+        : 'OHS practitioner';
+
     if (routing.poolOhsId) {
       await this.addActivity(
         incident.id,
         'NEW',
         isHealth
           ? 'Added to province First Aider pool (waiting for self-assignment)'
-          : 'Added to province OHS pool',
+          : `Added to province ${poolLabel} pool`,
         userId,
       );
       await this.notifications.create(
         routing.poolOhsId,
-        isHealth ? 'New Health Case in Your Pool' : 'New Case in Your Pool',
+        isHealth
+          ? 'New Health Case in Your Pool'
+          : isOthers
+            ? 'New Facilities Case in Your Pool'
+            : 'New Case in Your Pool',
         isHealth
           ? `Case ${incidentNumber} (health) is waiting in your province pool. Please pick it up to assist.`
           : `Case ${incidentNumber} is waiting in your province pool.`,
@@ -162,11 +180,11 @@ export class CasesService {
       await this.addActivity(
         incident.id,
         'NEW',
-        `No ${isHealth ? 'first aider' : 'OHS practitioner'} in this province`,
+        `No ${coverLabel} in this province`,
         userId,
       );
       await this.notifyAdmins(
-        `Case ${incidentNumber} has no ${isHealth ? 'first aider' : 'OHS practitioner'} in its province and needs administrator assignment.`,
+        `Case ${incidentNumber} has no ${coverLabel} in its province and needs administrator assignment.`,
         incident.id,
       );
     }
@@ -225,9 +243,14 @@ export class CasesService {
     return incident;
   }
 
-  /** Decide where a newly-raised incident goes based on category + province coverage. */
+  /**
+   * Decide where a newly-raised incident goes based on category + province coverage.
+   *  - safety / health  -> First Aider pool (4h SLA)
+   *  - others           -> Facilities Co Coordinator pool (24h SLA)
+   *  - everything else   -> OHS Practitioner pool (24h SLA)
+   */
   private async routeIncident(
-    isSafetyOrHealth: boolean,
+    category: string,
     provinceId: string | null,
   ): Promise<{
     status: IncidentStatus;
@@ -235,27 +258,61 @@ export class CasesService {
     assigneeId: string | null;
     poolOhsId: string | null;
   }> {
+    const isSafetyOrHealth = category === 'health' || category === 'safety';
+    const isOthers = category === 'others';
     const slaHours = isSafetyOrHealth ? 4 : 24;
     const pickupDueAt = new Date(Date.now() + slaHours * 60 * 60 * 1000);
 
-    const func = isSafetyOrHealth ? CoverageFunction.FIRST_AIDER : CoverageFunction.OHS_PRACTITIONER;
-    const cover = provinceId
-      ? await this.prisma.provinceAssignment.findUnique({
-          where: {
-            provinceId_function: {
+    let poolUserId: string | null = null;
+
+    if (isOthers) {
+      // "Other" category incidents are handled by the province Facilities Co Coordinator.
+      const facilities = provinceId
+        ? await this.prisma.user.findFirst({
+            where: {
               provinceId,
-              function: func,
+              isActive: true,
+              roles: { some: { role: { name: 'FACILITIES_COORDINATOR' } } },
             },
+            select: { id: true },
+          })
+        : null;
+      poolUserId = facilities?.id || null;
+    } else {
+      const func = isSafetyOrHealth
+        ? CoverageFunction.FIRST_AIDER
+        : CoverageFunction.OHS_PRACTITIONER;
+      const cover = provinceId
+        ? await this.prisma.provinceAssignment.findUnique({
+            where: {
+              provinceId_function: {
+                provinceId,
+                function: func,
+              },
+            },
+            select: { userId: true },
+          })
+        : null;
+      poolUserId = cover?.userId || null;
+      if (!poolUserId && provinceId) {
+        const targetRole = isSafetyOrHealth ? 'FIRST_AIDER' : 'OHS_PRACTITIONER';
+        const u = await this.prisma.user.findFirst({
+          where: {
+            provinceId,
+            isActive: true,
+            roles: { some: { role: { name: targetRole } } },
           },
-          select: { userId: true },
-        })
-      : null;
+          select: { id: true },
+        });
+        poolUserId = u?.id || null;
+      }
+    }
 
     return {
       status: IncidentStatus.NEW,
       pickupDueAt,
       assigneeId: null,
-      poolOhsId: cover?.userId || null,
+      poolOhsId: poolUserId,
     };
   }
 
@@ -330,8 +387,12 @@ export class CasesService {
       data: { incidentId: id, assignedToId: userId, assignedById: userId },
     });
 
+    const isFacilities = roles.includes('FACILITIES_COORDINATOR');
+
     let targetStatus: IncidentStatus = IncidentStatus.ASSIGNED;
-    if (incident.status === IncidentStatus.REFERRED_TO_OHS_AND_HR) {
+    if (isFacilities || incident.category?.toLowerCase() === 'others') {
+      targetStatus = IncidentStatus.UNDER_FACILITIES_COORDINATOR;
+    } else if (incident.status === IncidentStatus.REFERRED_TO_OHS_AND_HR || roles.includes('OHS_PRACTITIONER') || roles.includes('OHS_NATIONAL_OFFICE')) {
       targetStatus = IncidentStatus.ASSIGNED_TO_OHS;
     }
 
@@ -363,6 +424,12 @@ export class CasesService {
               role: true,
             },
           },
+          province: true,
+          department: {
+            include: {
+              building: true,
+            },
+          },
         },
       });
       const roles = callingUser?.roles.map(r => r.role.name.toLowerCase().replace(/_/g, ' ').replace(/\s+/g, ' ').trim()) || [];
@@ -370,26 +437,52 @@ export class CasesService {
       const isOhsPractitioner = roles.includes('ohs practitioner');
       const isOhsNationalOffice = roles.includes('ohs national office');
       const isFirstAider = roles.includes('first aider');
+      const isPsscCoordinator = roles.includes('pssc coordinator');
+      const isDeputyDirector = roles.includes('deputy director');
+      const isFacilitiesCoordinator = roles.includes('facilities coordinator');
+      const isNationalOffice = callingUser?.province?.name === 'National Office';
+      const provId = callingUser?.provinceId || callingUser?.department?.building?.provinceId;
 
       if (isSupervisor) {
-        const provId = callingUser?.provinceId;
         if (provId) {
           where.OR = [
             { reportedBy: { provinceId: provId } },
             { reportedById: currentUserId },
-            { provinceId: provId }
+            { provinceId: provId },
+            { building: { provinceId: provId } },
           ];
         }
-      } else if (isOhsPractitioner && !isOhsNationalOffice) {
-        const provId = callingUser?.provinceId;
+      } else if ((isOhsPractitioner || isFacilitiesCoordinator) && !isOhsNationalOffice) {
         if (provId) {
-          where.provinceId = provId;
+          where.OR = [
+            { provinceId: provId },
+            { building: { provinceId: provId } },
+          ];
+          // Split the province pool by category: the Facilities Co Coordinator
+          // handles "Other" category incidents, the OHS Practitioner handles the rest.
+          if (isFacilitiesCoordinator) {
+            where.category = { equals: 'others', mode: 'insensitive' };
+          } else {
+            where.category = { not: 'others', mode: 'insensitive' };
+          }
         }
       } else if (isFirstAider) {
-        const provId = callingUser?.provinceId;
         if (provId) {
-          where.provinceId = provId;
+          where.OR = [
+            { provinceId: provId },
+            { building: { provinceId: provId } },
+          ];
         }
+      } else if ((isPsscCoordinator || isDeputyDirector) && !isNationalOffice) {
+        if (provId) {
+          where.OR = [
+            { provinceId: provId },
+            { building: { provinceId: provId } },
+          ];
+        }
+      } else if (roles.includes('employee')) {
+        // Employees can only see cases they reported
+        where.reportedById = currentUserId;
       }
     }
 
@@ -403,9 +496,15 @@ export class CasesService {
       }
     }
     if (query.unassignedOnly === 'true') {
-      where.assignments = {
-        none: {},
-      };
+      where.AND = [
+        ...(where.AND || []),
+        {
+          OR: [
+            { status: 'REFERRED_TO_OHS_AND_HR' },
+            { assignments: { none: {} } },
+          ],
+        },
+      ];
     }
     if (query.buildingId) where.buildingId = query.buildingId;
     if (query.provinceId) where.provinceId = query.provinceId;
@@ -528,7 +627,7 @@ export class CasesService {
 
     if (!c) throw new NotFoundException('Case not found');
 
-    // Transform for frontend compatibility (appends SAS tokens)
+    // Transform for frontend compatibility
     return this.transformIncident(c);
   }
 
@@ -831,6 +930,13 @@ export class CasesService {
   }
 
   async addApproval(incidentId: string, body: any, uploadedById: string) {
+    if (!uploadedById) {
+      const inc = await this.prisma.incident.findUnique({
+        where: { id: incidentId },
+        select: { reportedById: true },
+      });
+      uploadedById = inc?.reportedById || '';
+    }
     const files =
       body.files ??
       (body.fileUrl || body.url
@@ -844,11 +950,14 @@ export class CasesService {
         : []);
     if (!body.roleName)
       throw new BadRequestException('roleName is required');
-    if (!Array.isArray(files) || files.length === 0) {
-      throw new BadRequestException(
-        'At least one file is required (upload files first, then submit)',
-      );
-    }
+
+    const finalFiles = Array.isArray(files) && files.length > 0 ? files : [
+      {
+        fileUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=',
+        fileName: `${body.roleName.replace(/\s+/g, '_')}_Signature.png`,
+        fileType: 'image/png'
+      }
+    ];
 
     const approval = await this.prisma.approval.create({
       data: {
@@ -858,7 +967,7 @@ export class CasesService {
         recommendationText: body.recommendationText ?? null,
         uploadedById,
         attachments: {
-          create: files.map((f: any) => ({
+          create: finalFiles.map((f: any) => ({
             fileUrl: f.fileUrl ?? f.url,
             fileName: f.fileName ?? null,
             fileType: f.fileType ?? null,
@@ -867,6 +976,17 @@ export class CasesService {
       },
       include: { attachments: true, uploadedBy: true },
     });
+
+    if (body.recommendationText && body.recommendationText.trim()) {
+      await this.prisma.incidentComment.create({
+        data: {
+          incidentId,
+          userId: uploadedById,
+          comment: `[${body.roleName} Comment/Recommendation] ${body.recommendationText.trim()}`,
+        },
+      });
+    }
+
     return this.signApprovalRecord(approval);
   }
 

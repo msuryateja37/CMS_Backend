@@ -73,4 +73,12 @@ export class CreateCaseDto {
   @IsOptional()
   @IsUUID()
   assignedToId?: string;
+
+  @IsOptional()
+  @IsString()
+  natureOfInjury?: string;
+
+  @IsOptional()
+  @IsString()
+  bodyPartAffected?: string;
 }

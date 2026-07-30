@@ -86,6 +86,10 @@ async function main() {
         "SYSTEM_ADMINISTRATOR",
         "FIRST_AIDER",
         "HR",
+        "PSSC_COORDINATOR",
+        "DEPUTY_DIRECTOR",
+        "CHIEF_DIRECTOR",
+        "FACILITIES_COORDINATOR",
     ];
 
     const roles: any = {};
@@ -143,10 +147,14 @@ async function main() {
             { role: "SUPERVISOR", prefix: "supervisor" },
             { role: "FIRST_AIDER", prefix: "firstaider" },
             { role: "HR", prefix: "hr" },
+            { role: "PSSC_COORDINATOR", prefix: "pssccoordinator" },
+            { role: "DEPUTY_DIRECTOR", prefix: "deputydirector" },
+            { role: "FACILITIES_COORDINATOR", prefix: "facilitiescoordinator" },
         ];
 
         if (province.name === 'National Office') {
             ssoRoles.push({ role: "OHS_NATIONAL_OFFICE", prefix: "ohspractitioner" });
+            ssoRoles.push({ role: "CHIEF_DIRECTOR", prefix: "chiefdirector" });
         } else if (!['Eastern Cape', 'Northern Cape', 'North West'].includes(province.name)) {
             ssoRoles.push({ role: "OHS_PRACTITIONER", prefix: "ohspractitioner" });
         }
@@ -162,6 +170,8 @@ async function main() {
                 departmentId = departments.find(d => d.name === 'Security')?.id || departments[0].id;
             } else if (item.role === 'HR') {
                 departmentId = departments.find(d => d.name === 'Health')?.id || departments[0].id;
+            } else if (item.role === 'FACILITIES_COORDINATOR') {
+                departmentId = departments.find(d => d.name === 'Facilities')?.id || departments[0].id;
             } else {
                 departmentId = departments[Math.floor(Math.random() * departments.length)].id;
             }
